@@ -15,6 +15,11 @@ export type RepoSummaryDraft = {
   };
 };
 
+export type RepoSummaryResult = {
+  draft: RepoSummaryDraft;
+  source: "llm" | "rule_based";
+};
+
 export async function summarizeRepo(input: {
   name: string;
   description: string | null;
@@ -22,7 +27,7 @@ export async function summarizeRepo(input: {
   topics: string[];
   readmeText: string | null;
   stars: number;
-}): Promise<RepoSummaryDraft> {
+}): Promise<RepoSummaryResult> {
   if (isLlmAvailable()) {
     const result = await llmJson<RepoSummaryDraft>({
       system: REPO_SUMMARY_SYSTEM_PROMPT,
@@ -30,9 +35,9 @@ export async function summarizeRepo(input: {
       parse: (raw) => JSON.parse(extractJsonBlock(raw)) as RepoSummaryDraft,
       maxTokens: 1400,
     });
-    if (result.ok) return result.data;
+    if (result.ok) return { draft: result.data, source: "llm" };
   }
-  return ruleBasedSummary(input);
+  return { draft: ruleBasedSummary(input), source: "rule_based" };
 }
 
 function buildRepoPrompt(input: {
@@ -78,7 +83,7 @@ function ruleBasedSummary(input: {
   return {
     summary,
     resumeReadyTitle: toTitle(input.name),
-    resumeReadyBullets: buildDraftBullets(input.name, techTags),
+    resumeReadyBullets: buildDraftBullets(input.name, techTags, input.readmeText),
     techTags: techTags.slice(0, 12),
     roleTags: role,
     confidenceScores: {
@@ -98,11 +103,17 @@ function toTitle(name: string) {
   return name.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function buildDraftBullets(name: string, tech: string[]): string[] {
+function buildDraftBullets(name: string, tech: string[], readme: string | null): string[] {
   const primary = tech.slice(0, 4).join(", ");
-  return [
-    `Built ${toTitle(name)}${primary ? ` using ${primary}` : ""} (draft — review required).`,
-  ];
+  const intro = `Built ${toTitle(name)}${primary ? ` using ${primary}` : ""} — draft, review required.`;
+  if (!readme) return [intro];
+  // extract the first two bullet-style lines from readme, if any
+  const lines = readme.split(/\r?\n/).map((l) => l.trim());
+  const extra = lines
+    .filter((l) => /^[-*•]\s+/.test(l))
+    .slice(0, 2)
+    .map((l) => l.replace(/^[-*•]\s+/, "").replace(/\s+/g, " ").slice(0, 220) + " (from README — verify)");
+  return [intro, ...extra];
 }
 
 function inferRoleTag(tech: string[]): string[] {

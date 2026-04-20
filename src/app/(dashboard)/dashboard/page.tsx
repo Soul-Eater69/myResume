@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { PageHeader } from "@/components/layout/dashboard-shell";
-import { Card, CardDescription, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { PageHeader, SectionHeader } from "@/components/layout/dashboard-shell";
+import { Card, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge, StatusDot } from "@/components/ui/badge";
+import { Stat } from "@/components/ui/stat";
+import { Icon } from "@/components/ui/icon";
+import { Empty } from "@/components/ui/empty";
+import { Button } from "@/components/ui/button";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -32,72 +36,142 @@ export default async function DashboardPage() {
     hasSkills: skillCount > 0,
   });
 
+  const firstName = user.name.split(" ")[0];
+  const githubActive = githubConn?.connectionStatus === "active";
+
   return (
     <>
       <PageHeader
-        title={`Welcome, ${user.name.split(" ")[0]}`}
-        description="Your career knowledge workspace."
+        title={`Welcome, ${firstName}`}
+        description="Overview of your profile vault, pipeline, and integrations."
+        actions={
+          <Link href="/jobs" className="btn btn-md btn-primary">
+            <Icon.Plus className="h-4 w-4" />
+            Add job
+          </Link>
+        }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardTitle>Profile</CardTitle>
-          <CardDescription>{completeness}% complete</CardDescription>
-          <div className="mt-3 h-2 bg-slate-100 rounded-full">
-            <div className="h-2 bg-brand-500 rounded-full" style={{ width: `${completeness}%` }} />
-          </div>
-          <Link href="/profile" className="btn-ghost mt-3 text-sm">Open profile →</Link>
-        </Card>
-        <Card>
-          <CardTitle>Jobs</CardTitle>
-          <CardDescription>{jobCount} saved</CardDescription>
-          <Link href="/jobs" className="btn-ghost mt-3 text-sm">View jobs →</Link>
-        </Card>
-        <Card>
-          <CardTitle>Resumes</CardTitle>
-          <CardDescription>{resumeCount} generated</CardDescription>
-          <Link href="/jobs" className="btn-ghost mt-3 text-sm">Generate new →</Link>
-        </Card>
-        <Card>
-          <CardTitle>Applications</CardTitle>
-          <CardDescription>{appCount} tracked</CardDescription>
-          <Link href="/applications" className="btn-ghost mt-3 text-sm">Track →</Link>
-        </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+        <Stat
+          label="Profile"
+          value={`${completeness}%`}
+          hint="Completeness across summary, experience, projects, and skills."
+          href="/profile"
+          icon={<Icon.User className="h-3.5 w-3.5" />}
+        />
+        <Stat
+          label="Jobs"
+          value={jobCount}
+          hint={jobCount === 0 ? "Paste a JD to extract hiring signals." : "Tracked job descriptions."}
+          href="/jobs"
+          icon={<Icon.Briefcase className="h-3.5 w-3.5" />}
+        />
+        <Stat
+          label="Resumes"
+          value={resumeCount}
+          hint="Generated versions."
+          href="/jobs"
+          icon={<Icon.FileText className="h-3.5 w-3.5" />}
+        />
+        <Stat
+          label="Applications"
+          value={appCount}
+          hint="Tracked across pipeline stages."
+          href="/applications"
+          icon={<Icon.Kanban className="h-3.5 w-3.5" />}
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardTitle>Recent generated resumes</CardTitle>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-3">
+          <SectionHeader
+            title="Recent generated resumes"
+            description="Your most recent tailored outputs."
+            actions={
+              <Link href="/jobs" className="btn btn-sm btn-ghost">
+                View all <Icon.ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            }
+          />
           {recentResumes.length === 0 ? (
-            <p className="muted text-sm mt-2">
-              Generate your first resume by adding a job description.
-            </p>
+            <Empty
+              icon={<Icon.FileText className="h-4 w-4" />}
+              title="No generated resumes yet"
+              description="Add a job description and generate your first tailored resume."
+              action={
+                <Link href="/jobs" className="btn btn-md btn-primary">
+                  <Icon.Plus className="h-4 w-4" /> Add a job
+                </Link>
+              }
+            />
           ) : (
-            <ul className="mt-3 divide-y divide-slate-100">
-              {recentResumes.map((v) => (
-                <li key={v.id} className="py-2 flex items-center justify-between text-sm">
-                  <span className="truncate">
-                    <span className="font-medium">{v.resume.title}</span>
-                    {v.job ? <span className="muted"> · {v.job.company ?? "—"}</span> : null}
-                  </span>
-                  <Link className="btn-ghost" href={`/resume-builder/${v.jobId ?? ""}`}>Open</Link>
-                </li>
-              ))}
-            </ul>
+            <Card padding="none">
+              <ul className="divide-y divide-border-subtle">
+                {recentResumes.map((v) => (
+                  <li key={v.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                    <div className="min-w-0">
+                      <div className="font-medium text-fg truncate">{v.resume.title}</div>
+                      <div className="text-xs text-fg-subtle mt-0.5 flex items-center gap-1.5">
+                        {v.job ? (
+                          <>
+                            <Icon.Briefcase className="h-3 w-3" />
+                            <span className="truncate">{v.job.title ?? "—"} · {v.job.company ?? "—"}</span>
+                          </>
+                        ) : (
+                          <span>Unlinked</span>
+                        )}
+                        {v.versionName ? <Badge className="ml-1">{v.versionName}</Badge> : null}
+                      </div>
+                    </div>
+                    <Link
+                      className="btn btn-sm btn-outline"
+                      href={`/resume-builder/${v.jobId ?? ""}`}
+                    >
+                      Open
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
           )}
-        </Card>
-        <Card>
-          <CardTitle>GitHub</CardTitle>
-          <div className="mt-2 flex items-center gap-2 text-sm">
-            <Badge variant={githubConn ? "verified" : "review"}>
-              {githubConn ? "Connected" : "Not connected"}
-            </Badge>
-            <Link className="btn-ghost" href="/github">Manage →</Link>
-          </div>
-          <CardDescription className="mt-3">
-            Import repositories as project evidence. Imports stay in review until you verify them.
-          </CardDescription>
-        </Card>
+        </div>
+
+        <div className="space-y-3">
+          <SectionHeader title="Integrations" />
+          <Card>
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-md bg-fg text-white flex items-center justify-center">
+                  <Icon.Github className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-fg">GitHub</div>
+                  <div className="inline-flex items-center gap-1.5 text-xs text-fg-muted mt-0.5">
+                    <StatusDot status={githubActive ? "success" : "neutral"} />
+                    {githubActive ? "Connected" : "Not connected"}
+                  </div>
+                </div>
+              </div>
+              <Link href="/github" className="btn btn-sm btn-ghost">Manage</Link>
+            </div>
+            <CardDescription className="mt-3">
+              Import repositories as project evidence. Imports stay review-needed until verified.
+            </CardDescription>
+          </Card>
+
+          <Card>
+            <CardTitle>Trust layer</CardTitle>
+            <CardDescription className="mt-1">
+              Every generated resume separates verified facts from AI suggestions.
+            </CardDescription>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <Badge variant="verified" leftIcon={<Icon.CheckCircle className="h-3 w-3" />}>Verified</Badge>
+              <Badge variant="review" leftIcon={<Icon.Circle className="h-3 w-3" />}>Review</Badge>
+              <Badge variant="suggested" leftIcon={<Icon.Sparkles className="h-3 w-3" />}>Suggested</Badge>
+            </div>
+          </Card>
+        </div>
       </div>
     </>
   );

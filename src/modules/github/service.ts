@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
-import { badRequest, notFound } from "@/lib/errors";
+import { badRequest, notFound, HttpError } from "@/lib/errors";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { summarizeRepo } from "@/modules/ai/summarizer";
+import { logger } from "@/lib/logger";
 
 const GITHUB_API = "https://api.github.com";
 
@@ -15,7 +16,18 @@ async function gh<T>(path: string, token: string): Promise<T> {
     },
   });
   if (!res.ok) {
-    throw new Error(`github ${path} failed: ${res.status} ${await res.text().catch(() => "")}`);
+    const body = await res.text().catch(() => "");
+    logger.warn("github_api_error", { path, status: res.status, body: body.slice(0, 500) });
+    if (res.status === 401 || res.status === 403) {
+      throw new HttpError(401, "github_unauthorized", "GitHub rejected the token. Re-connect with a valid token.");
+    }
+    if (res.status === 403 && /rate limit/i.test(body)) {
+      throw new HttpError(429, "github_rate_limited", "GitHub API rate limit reached. Try again in a few minutes.");
+    }
+    if (res.status === 404) {
+      throw new HttpError(404, "github_not_found", `GitHub resource not found: ${path}`);
+    }
+    throw new HttpError(502, "github_upstream", `GitHub request failed (${res.status}).`);
   }
   return (await res.json()) as T;
 }
@@ -40,7 +52,8 @@ export async function disconnectGithub(userId: string) {
 
 async function getToken(userId: string): Promise<string> {
   const conn = await db.githubConnection.findUnique({ where: { userId } });
-  if (!conn || !conn.accessTokenEncrypted) throw badRequest("github not connected");
+  if (!conn || !conn.accessTokenEncrypted)
+    throw new HttpError(400, "github_not_connected", "Connect GitHub before performing this action.");
   return decryptSecret(conn.accessTokenEncrypted);
 }
 
@@ -67,11 +80,15 @@ export async function syncRepos(userId: string) {
   );
 
   const results = [] as { id: string; name: string }[];
+  let languageFailures = 0;
   for (const r of repos) {
     const languages = await gh<Record<string, number>>(
       `/repos/${r.full_name}/languages`,
       token
-    ).catch(() => ({}));
+    ).catch(() => {
+      languageFailures += 1;
+      return {} as Record<string, number>;
+    });
     const topics = r.topics ?? [];
 
     const saved = await db.githubRepo.upsert({
@@ -109,7 +126,7 @@ export async function syncRepos(userId: string) {
     });
     results.push({ id: saved.id, name: saved.name });
   }
-  return { count: results.length, repos: results };
+  return { count: results.length, repos: results, languageFailures };
 }
 
 export async function listRepos(userId: string) {
@@ -118,6 +135,16 @@ export async function listRepos(userId: string) {
     orderBy: { lastPushedAt: "desc" },
     include: { summary: true },
   });
+}
+
+export type RepoWithSummary = Awaited<ReturnType<typeof listRepos>>[number];
+
+export async function listImportedRepoUrls(userId: string): Promise<Set<string>> {
+  const rows = await db.project.findMany({
+    where: { userId, sourceType: "github" },
+    select: { repoUrl: true },
+  });
+  return new Set(rows.map((r) => r.repoUrl).filter((u): u is string => Boolean(u)));
 }
 
 export async function summarizeRepoById(userId: string, repoId: string) {
@@ -144,7 +171,7 @@ export async function summarizeRepoById(userId: string, repoId: string) {
     readme = null;
   }
 
-  const draft = await summarizeRepo({
+  const { draft, source } = await summarizeRepo({
     name: repo.name,
     description: repo.description,
     languages: toStringArray(repo.languages),
@@ -153,11 +180,13 @@ export async function summarizeRepoById(userId: string, repoId: string) {
     stars: repo.stars ?? 0,
   });
 
-  return db.repoSummary.upsert({
+  const saved = await db.repoSummary.upsert({
     where: { repoId },
     create: { repoId, readmeText: readme, ...draft },
     update: { readmeText: readme, ...draft },
   });
+
+  return { summary: saved, source, fallback: source === "rule_based" };
 }
 
 export async function importRepoToProject(userId: string, repoId: string) {

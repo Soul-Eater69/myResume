@@ -8,7 +8,11 @@ export default async function SkillsPage() {
   const data = await getFullProfile(user.id);
   return (
     <>
-      <PageHeader title="Skills" description="Verified skills are what the resume composer is allowed to list." />
+      <PageHeader
+        title="Skills"
+        description="Verified skills are what the resume composer is allowed to list."
+        breadcrumbs={[{ label: "Profile", href: "/profile" }, { label: "Skills" }]}
+      />
       <SkillManager initial={data.skills.map((s) => ({ id: s.id, name: s.name, category: s.category ?? "", isVerified: s.isVerified }))} />
     </>
   );

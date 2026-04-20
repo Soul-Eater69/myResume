@@ -8,7 +8,11 @@ export default async function ProjectsPage() {
   const data = await getFullProfile(user.id);
   return (
     <>
-      <PageHeader title="Projects" description="Personal or professional projects available for resume tailoring." />
+      <PageHeader
+        title="Projects"
+        description="Personal or professional projects available for resume tailoring."
+        breadcrumbs={[{ label: "Profile", href: "/profile" }, { label: "Projects" }]}
+      />
       <ProjectManager initial={data.projects.map((p) => ({
         id: p.id,
         title: p.title,

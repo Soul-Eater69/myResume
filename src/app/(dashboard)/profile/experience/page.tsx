@@ -8,7 +8,11 @@ export default async function ExperiencePage() {
   const data = await getFullProfile(user.id);
   return (
     <>
-      <PageHeader title="Experience" description="Roles that appear in resume generation." />
+      <PageHeader
+        title="Experience"
+        description="Roles that appear in resume generation."
+        breadcrumbs={[{ label: "Profile", href: "/profile" }, { label: "Experience" }]}
+      />
       <ExperienceManager initial={data.experiences.map((e) => ({
         id: e.id,
         company: e.company,

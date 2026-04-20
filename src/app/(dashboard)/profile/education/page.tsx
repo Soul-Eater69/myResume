@@ -8,7 +8,11 @@ export default async function EducationPage() {
   const data = await getFullProfile(user.id);
   return (
     <>
-      <PageHeader title="Education" />
+      <PageHeader
+        title="Education"
+        description="Degrees, programs, and graduation dates."
+        breadcrumbs={[{ label: "Profile", href: "/profile" }, { label: "Education" }]}
+      />
       <EducationManager initial={data.educations.map((e) => ({
         id: e.id,
         institution: e.institution,

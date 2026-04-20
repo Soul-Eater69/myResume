@@ -11,5 +11,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     select: { name: true, email: true },
   });
   if (!user) redirect("/login");
-  return <DashboardShell userName={user.name}>{children}</DashboardShell>;
+  return (
+    <DashboardShell userName={user.name} userEmail={user.email}>
+      {children}
+    </DashboardShell>
+  );
 }

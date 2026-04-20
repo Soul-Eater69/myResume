@@ -1,25 +1,23 @@
 "use client";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/input";
+import { Input, Textarea, Field } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 
 export function ProfileBasicsForm({
   initial,
 }: {
   initial: { headline: string; summary: string; targetRoles: string[] };
 }) {
+  const toast = useToast();
   const [headline, setHeadline] = useState(initial.headline);
   const [summary, setSummary] = useState(initial.summary);
-  const [targetRolesText, setTargetRolesText] = useState(
-    initial.targetRoles.join(", ")
-  );
+  const [targetRolesText, setTargetRolesText] = useState(initial.targetRoles.join(", "));
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   async function save() {
     setSaving(true);
-    setSaved(false);
-    await fetch("/api/profile", {
+    const res = await fetch("/api/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -32,40 +30,38 @@ export function ProfileBasicsForm({
       }),
     });
     setSaving(false);
-    setSaved(true);
+    if (res.ok) toast.success("Profile saved");
+    else toast.error("Could not save profile");
   }
 
   return (
-    <div className="mt-3 space-y-3">
-      <div>
-        <Label>Headline</Label>
+    <div className="mt-4 space-y-4">
+      <Field label="Headline">
         <Input
           value={headline}
           onChange={(e) => setHeadline(e.target.value)}
           placeholder="Senior Software Engineer"
         />
-      </div>
-      <div>
-        <Label>Professional summary</Label>
+      </Field>
+      <Field label="Professional summary" hint="One paragraph overview of your experience, stack, and impact.">
         <Textarea
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
-          placeholder="One-paragraph overview of your experience, stack, and what you build."
+          placeholder="Backend engineer specializing in distributed systems…"
+          rows={4}
         />
-      </div>
-      <div>
-        <Label>Target roles (comma-separated)</Label>
+      </Field>
+      <Field label="Target roles" hint="Comma-separated.">
         <Input
           value={targetRolesText}
           onChange={(e) => setTargetRolesText(e.target.value)}
           placeholder="Backend Engineer, AI Engineer"
         />
-      </div>
-      <div className="flex items-center gap-3">
-        <Button onClick={save} disabled={saving}>
-          {saving ? "Saving…" : "Save"}
+      </Field>
+      <div className="pt-2 border-t border-border-subtle">
+        <Button onClick={save} loading={saving} loadingText="Saving…">
+          Save changes
         </Button>
-        {saved ? <span className="text-sm text-emerald-600">Saved</span> : null}
       </div>
     </div>
   );

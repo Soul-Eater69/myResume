@@ -5,5 +5,10 @@ import { summarizeRepoById } from "@/modules/github/service";
 export const POST = handle(async (_req, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requireUser();
   const { id } = await params;
-  return ok(await summarizeRepoById(user.id, id));
+  const result = await summarizeRepoById(user.id, id);
+  return ok({
+    summary: result.summary,
+    source: result.source,
+    fallback: result.fallback,
+  });
 });

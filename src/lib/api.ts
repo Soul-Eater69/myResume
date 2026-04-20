@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ZodError, type ZodSchema } from "zod";
+import { ZodError, type ZodTypeAny, type z } from "zod";
 import { HttpError } from "./errors";
 import { logger } from "./logger";
 
@@ -15,7 +15,10 @@ export function noContent() {
   return new NextResponse(null, { status: 204 });
 }
 
-export async function parseJson<T>(req: Request, schema: ZodSchema<T>): Promise<T> {
+export async function parseJson<S extends ZodTypeAny>(
+  req: Request,
+  schema: S
+): Promise<z.infer<S>> {
   let body: unknown;
   try {
     body = await req.json();

@@ -2,45 +2,86 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Field } from "@/components/ui/input";
+import { Icon } from "@/components/ui/icon";
+import { useToast } from "@/components/ui/toast";
 
 export function ConnectForm({ connected }: { connected: boolean }) {
   const router = useRouter();
+  const toast = useToast();
   const [token, setToken] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<"connect" | "disconnect" | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function connect() {
-    setLoading(true);
-    await fetch("/api/github/connect", {
+    if (token.length < 20) {
+      setError("Token looks too short (expected >= 20 chars).");
+      return;
+    }
+    setError(null);
+    setLoading("connect");
+    const res = await fetch("/api/github/connect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
     });
-    setLoading(false);
+    setLoading(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const msg = data.message || "Could not save token.";
+      setError(msg);
+      toast.error("Connect failed", msg);
+      return;
+    }
     setToken("");
+    toast.success(connected ? "Token updated" : "GitHub connected");
     router.refresh();
   }
 
   async function disconnect() {
-    await fetch("/api/github/connect", { method: "DELETE" });
-    router.refresh();
+    setLoading("disconnect");
+    const res = await fetch("/api/github/connect", { method: "DELETE" });
+    setLoading(null);
+    if (res.ok) {
+      toast.success("GitHub disconnected");
+      router.refresh();
+    } else {
+      toast.error("Could not disconnect");
+    }
   }
 
   return (
     <div className="space-y-3">
-      <Label>Personal access token</Label>
-      <Input
-        type="password"
-        value={token}
-        onChange={(e) => setToken(e.target.value)}
-        placeholder="ghp_..."
-      />
+      <Field
+        label="Personal access token"
+        hint="Create a token with repo:read scope and paste it here."
+        error={error ?? undefined}
+      >
+        <Input
+          type="password"
+          value={token}
+          onChange={(e) => { setToken(e.target.value); setError(null); }}
+          placeholder="ghp_…"
+          error={Boolean(error)}
+        />
+      </Field>
       <div className="flex gap-2">
-        <Button onClick={connect} disabled={!token || loading}>
+        <Button
+          onClick={connect}
+          disabled={!token}
+          loading={loading === "connect"}
+          loadingText="Saving…"
+          leftIcon={<Icon.Link className="h-4 w-4" />}
+        >
           {connected ? "Update token" : "Connect"}
         </Button>
         {connected ? (
-          <Button variant="outline" onClick={disconnect}>
+          <Button
+            variant="outline"
+            onClick={disconnect}
+            loading={loading === "disconnect"}
+            loadingText="Disconnecting…"
+          >
             Disconnect
           </Button>
         ) : null}
@@ -51,44 +92,111 @@ export function ConnectForm({ connected }: { connected: boolean }) {
 
 export function SyncButton() {
   const router = useRouter();
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
+
   async function onClick() {
     setLoading(true);
-    await fetch("/api/github/sync", { method: "POST" });
+    const res = await fetch("/api/github/sync", { method: "POST" });
     setLoading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error(
+        "Sync failed",
+        data.message || "GitHub may be rate-limiting or the token is invalid."
+      );
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    toast.success(
+      `Synced ${data.count ?? ""} repos`.trim(),
+      "Summarize any repo to prepare it for import."
+    );
     router.refresh();
   }
+
   return (
-    <Button variant="outline" onClick={onClick} disabled={loading}>
-      {loading ? "Syncing…" : "Sync repos"}
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={onClick}
+      loading={loading}
+      loadingText="Syncing…"
+      leftIcon={<Icon.RefreshCw className="h-3.5 w-3.5" />}
+    >
+      Sync repos
     </Button>
   );
 }
 
-export function RepoActions({ repoId, hasSummary }: { repoId: string; hasSummary: boolean }) {
+export function RepoActions({
+  repoId,
+  hasSummary,
+  imported,
+}: {
+  repoId: string;
+  hasSummary: boolean;
+  imported?: boolean;
+}) {
   const router = useRouter();
+  const toast = useToast();
   const [loading, setLoading] = useState<"summarize" | "import" | null>(null);
 
   async function summarize() {
     setLoading("summarize");
-    await fetch(`/api/github/repos/${repoId}/summarize`, { method: "POST" });
+    const res = await fetch(`/api/github/repos/${repoId}/summarize`, { method: "POST" });
     setLoading(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error("Could not summarize", data.message || "Try again.");
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    if (data?.fallback) {
+      toast.info(
+        "Deterministic summary",
+        "AI unavailable — used README + metadata. Review bullets before import."
+      );
+    } else {
+      toast.success("Summary ready");
+    }
     router.refresh();
   }
+
   async function importToProject() {
     setLoading("import");
-    await fetch(`/api/github/repos/${repoId}/import-to-projects`, { method: "POST" });
+    const res = await fetch(`/api/github/repos/${repoId}/import-to-projects`, { method: "POST" });
     setLoading(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error("Import failed", data.message || "Summarize the repo first.");
+      return;
+    }
+    toast.success("Imported to projects", "Review & verify on the Projects page.");
     router.refresh();
   }
 
   return (
-    <div className="flex gap-2">
-      <Button variant="outline" onClick={summarize} disabled={loading !== null}>
-        {loading === "summarize" ? "Summarizing…" : hasSummary ? "Re-summarize" : "Summarize"}
+    <div className="flex gap-2 flex-wrap">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={summarize}
+        loading={loading === "summarize"}
+        loadingText="Summarizing…"
+        leftIcon={<Icon.Sparkles className="h-3.5 w-3.5" />}
+      >
+        {hasSummary ? "Re-summarize" : "Summarize"}
       </Button>
-      <Button onClick={importToProject} disabled={!hasSummary || loading !== null}>
-        {loading === "import" ? "Importing…" : "Import to projects"}
+      <Button
+        size="sm"
+        onClick={importToProject}
+        disabled={!hasSummary}
+        loading={loading === "import"}
+        loadingText="Importing…"
+        leftIcon={imported ? <Icon.Check className="h-3.5 w-3.5" /> : <Icon.Plus className="h-3.5 w-3.5" />}
+      >
+        {imported ? "Re-import" : "Import to projects"}
       </Button>
     </div>
   );
