@@ -18,6 +18,8 @@ A career knowledge platform with tailored resume generation, job tracking, and G
 - PostgreSQL 14+
 - Redis 6+ (only required for the background worker)
 
+Or just **Docker** — see [Run with Docker](#run-with-docker) below.
+
 ## Setup
 
 ### 1. Clone and install
@@ -91,6 +93,56 @@ npm run worker         # background jobs (separate terminal, optional in dev)
 ```
 
 Create an account at `/signup`, then head to **Settings** to pick a provider and save your API key.
+
+## Run with Docker
+
+The bundled `docker-compose.yml` defines four services:
+
+| Service | Purpose | Always on |
+| --- | --- | --- |
+| `postgres` | Postgres 16 database | yes |
+| `redis` | Redis 7 for BullMQ | yes |
+| `web` | Next.js app (profile `app`) | opt-in |
+| `worker` | BullMQ processors (profile `app`) | opt-in |
+
+### Option A — services only (fastest dev loop)
+
+Run Postgres + Redis in Docker, then the app locally with `npm run dev`:
+
+```bash
+cp .env.example .env
+# make sure .env has:
+#   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/open_resume
+#   REDIS_URL=redis://localhost:6379
+
+docker compose up -d postgres redis
+npx prisma db push
+npm run dev
+```
+
+### Option B — everything in Docker
+
+Also builds and runs the web app + worker:
+
+```bash
+cp .env.example .env        # set SESSION_SECRET (required); add AI keys if you have them
+docker compose --profile app up -d --build
+docker compose exec web npx prisma db push   # one-time schema push
+```
+
+App listens on <http://localhost:3000>.
+
+### Useful commands
+
+```bash
+docker compose logs -f web                 # follow app logs
+docker compose logs -f worker              # follow worker logs
+docker compose exec postgres psql -U postgres -d open_resume
+docker compose --profile app down          # stop app containers
+docker compose down -v                     # stop everything + delete volumes (destructive)
+```
+
+Persistent data lives in three named volumes: `postgres_data`, `redis_data`, `storage_data` (user uploads).
 
 ## Using AI providers
 
