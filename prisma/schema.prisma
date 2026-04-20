@@ -1,0 +1,386 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  profile           Profile?
+  experiences       Experience[]
+  projects          Project[]
+  skills            Skill[]
+  educations        Education[]
+  certifications    Certification[]
+  profileLinks      ProfileLink[]
+  uploadedFiles     UploadedFile[]
+  jobs              Job[]
+  githubConnection  GithubConnection?
+  githubRepos       GithubRepo[]
+  resumes           Resume[]
+  resumeVersions    ResumeVersion[]
+  applications      Application[]
+  aiGenerationLogs  AiGenerationLog[]
+
+  @@map("users")
+}
+
+model Profile {
+  id                  String   @id @default(uuid())
+  userId              String   @unique @map("user_id")
+  headline            String?
+  summary             String?
+  targetRoles         Json?    @map("target_roles")
+  preferredLocations  Json?    @map("preferred_locations")
+  yearsOfExperience   Decimal? @map("years_of_experience")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model Experience {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  company        String
+  title          String
+  location       String?
+  employmentType String?   @map("employment_type")
+  startDate      DateTime? @map("start_date") @db.Date
+  endDate        DateTime? @map("end_date") @db.Date
+  isCurrent      Boolean   @default(false) @map("is_current")
+  description    String?
+  impactMetrics  Json?     @map("impact_metrics")
+  techStack      Json?     @map("tech_stack")
+  domainTags     Json?     @map("domain_tags")
+  sourceType     String    @default("manual") @map("source_type")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bullets ExperienceBullet[]
+
+  @@index([userId])
+  @@map("experiences")
+}
+
+model ExperienceBullet {
+  id           String   @id @default(uuid())
+  experienceId String   @map("experience_id")
+  bulletText   String   @map("bullet_text")
+  sortOrder    Int      @map("sort_order")
+  isVerified   Boolean  @default(true) @map("is_verified")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  experience Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  @@index([experienceId])
+  @@map("experience_bullets")
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  title       String
+  description String?
+  repoUrl     String?  @map("repo_url")
+  liveUrl     String?  @map("live_url")
+  techStack   Json?    @map("tech_stack")
+  domainTags  Json?    @map("domain_tags")
+  sourceType  String   @default("manual") @map("source_type")
+  isVerified  Boolean  @default(true) @map("is_verified")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bullets ProjectBullet[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model ProjectBullet {
+  id         String   @id @default(uuid())
+  projectId  String   @map("project_id")
+  bulletText String   @map("bullet_text")
+  sortOrder  Int      @map("sort_order")
+  isVerified Boolean  @default(true) @map("is_verified")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_bullets")
+}
+
+model Skill {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String
+  category    String?
+  proficiency String?
+  isVerified  Boolean  @default(true) @map("is_verified")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("skills")
+}
+
+model Education {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  institution  String
+  degree       String?
+  fieldOfStudy String?   @map("field_of_study")
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  gpa          String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("education")
+}
+
+model Certification {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  name          String
+  issuer        String?
+  issueDate     DateTime? @map("issue_date") @db.Date
+  expiryDate    DateTime? @map("expiry_date") @db.Date
+  credentialUrl String?   @map("credential_url")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("certifications")
+}
+
+model ProfileLink {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  label     String
+  url       String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("profile_links")
+}
+
+model UploadedFile {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  fileType     String   @map("file_type")
+  originalName String   @map("original_name")
+  storageKey   String   @map("storage_key")
+  mimeType     String   @map("mime_type")
+  sizeBytes    BigInt   @map("size_bytes")
+  parseStatus  String   @default("pending") @map("parse_status")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("uploaded_files")
+}
+
+model Job {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  company        String?
+  title          String?
+  sourceUrl      String?  @map("source_url")
+  jdText         String   @map("jd_text")
+  location       String?
+  employmentType String?  @map("employment_type")
+  status         String   @default("saved")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  signals      JobSignal?
+  applications Application[]
+  versions     ResumeVersion[]
+
+  @@index([userId])
+  @@map("jobs")
+}
+
+model JobSignal {
+  id              String   @id @default(uuid())
+  jobId           String   @unique @map("job_id")
+  keywords        Json?
+  requiredSkills  Json?    @map("required_skills")
+  preferredSkills Json?    @map("preferred_skills")
+  domainTags      Json?    @map("domain_tags")
+  seniority       String?
+  summary         String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("job_signals")
+}
+
+model GithubConnection {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique @map("user_id")
+  provider               String   @default("github")
+  accessTokenEncrypted   String?  @map("access_token_encrypted")
+  refreshTokenEncrypted  String?  @map("refresh_token_encrypted")
+  connectionStatus       String   @default("active") @map("connection_status")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("github_connections")
+}
+
+model GithubRepo {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  externalRepoId String    @map("external_repo_id")
+  name           String
+  fullName       String    @map("full_name")
+  htmlUrl        String    @map("html_url")
+  description    String?
+  defaultBranch  String?   @map("default_branch")
+  languages      Json?
+  topics         Json?
+  stars          Int?
+  forks          Int?
+  lastPushedAt   DateTime? @map("last_pushed_at")
+  isPrivate      Boolean   @default(false) @map("is_private")
+  syncStatus     String    @default("pending") @map("sync_status")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  summary RepoSummary?
+
+  @@unique([userId, externalRepoId])
+  @@index([userId])
+  @@map("github_repos")
+}
+
+model RepoSummary {
+  id                  String   @id @default(uuid())
+  repoId              String   @unique @map("repo_id")
+  readmeText          String?  @map("readme_text")
+  summary             String?
+  resumeReadyTitle    String?  @map("resume_ready_title")
+  resumeReadyBullets  Json?    @map("resume_ready_bullets")
+  techTags            Json?    @map("tech_tags")
+  roleTags            Json?    @map("role_tags")
+  confidenceScores    Json?    @map("confidence_scores")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  repo GithubRepo @relation(fields: [repoId], references: [id], onDelete: Cascade)
+
+  @@map("repo_summaries")
+}
+
+model Resume {
+  id                  String   @id @default(uuid())
+  userId              String   @map("user_id")
+  kind                String   // 'base' | 'generated'
+  title               String
+  contentJson         Json     @map("content_json")
+  renderedHtml        String?  @map("rendered_html")
+  sourceContextJson   Json?    @map("source_context_json")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions ResumeVersion[]
+
+  @@index([userId])
+  @@map("resumes")
+}
+
+model ResumeVersion {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  jobId          String?  @map("job_id")
+  resumeId       String   @map("resume_id")
+  versionName    String?  @map("version_name")
+  generationMode String?  @map("generation_mode")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job          Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  resume       Resume        @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@index([userId])
+  @@index([jobId])
+  @@map("resume_versions")
+}
+
+model Application {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  jobId           String    @map("job_id")
+  resumeVersionId String?   @map("resume_version_id")
+  status          String    @default("saved")
+  appliedAt       DateTime? @map("applied_at")
+  followUpAt      DateTime? @map("follow_up_at")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job           Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  resumeVersion ResumeVersion? @relation(fields: [resumeVersionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("applications")
+}
+
+model AiGenerationLog {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  jobId           String?  @map("job_id")
+  operation       String
+  modelName       String?  @map("model_name")
+  requestPayload  Json?    @map("request_payload")
+  responsePayload Json?    @map("response_payload")
+  status          String
+  errorMessage    String?  @map("error_message")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("ai_generation_logs")
+}
