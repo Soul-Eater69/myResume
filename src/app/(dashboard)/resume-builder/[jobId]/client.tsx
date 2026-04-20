@@ -75,7 +75,15 @@ export function ResumeBuilderClient({
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       const msg = data.message || "Generation failed";
-      setErrors([msg]);
+      const issueList = Array.isArray(data.issues)
+        ? data.issues
+            .map((i: { path?: (string | number)[]; message?: string }) => {
+              const p = (i.path ?? []).join(".");
+              return `${p ? p + ": " : ""}${i.message ?? ""}`.trim();
+            })
+            .filter((s: string) => s.length > 0)
+        : [];
+      setErrors(issueList.length ? [msg, ...issueList] : [msg]);
       toast.error("Could not generate", msg);
       return;
     }

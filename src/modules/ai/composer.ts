@@ -100,12 +100,12 @@ function ruleBasedCompose(input: ComposerInput): ResumeJson {
 
   return resumeJsonSchema.parse({
     basics: {
-      name: input.user.name,
+      name: safeNonEmpty(input.user.name, "Unnamed"),
       headline: input.user.headline ?? null,
-      email: input.user.email,
+      email: safeEmail(input.user.email),
       phone: input.user.phone ?? null,
       location: input.user.location ?? null,
-      links: input.user.links,
+      links: sanitizeLinks(input.user.links),
     },
     summary,
     skills: dedupeOrdered([
@@ -114,29 +114,37 @@ function ruleBasedCompose(input: ComposerInput): ResumeJson {
       ),
       ...input.verifiedSkills,
     ]).slice(0, 18),
-    experience: input.experiences.slice(0, maxExp).map((e) => ({
-      experienceId: e.id,
-      company: e.company,
-      title: e.title,
-      location: e.location,
-      startDate: e.startDate,
-      endDate: e.endDate,
-      bullets: e.bullets.slice(0, maxBullets),
-    })),
-    projects: input.projects.slice(0, maxProj).map((p) => ({
-      projectId: p.id,
-      title: p.title,
-      link: p.link,
-      bullets: p.bullets.slice(0, maxBullets),
-    })),
-    education: input.education.map((ed) => ({
-      educationId: ed.id,
-      institution: ed.institution,
-      degree: ed.degree,
-      fieldOfStudy: ed.fieldOfStudy,
-      startDate: ed.startDate,
-      endDate: ed.endDate,
-    })),
+    experience: input.experiences
+      .filter((e) => (e.company ?? "").trim() && (e.title ?? "").trim())
+      .slice(0, maxExp)
+      .map((e) => ({
+        experienceId: e.id,
+        company: e.company.trim(),
+        title: e.title.trim(),
+        location: e.location,
+        startDate: e.startDate,
+        endDate: e.endDate,
+        bullets: e.bullets.filter((b) => b.trim()).slice(0, maxBullets),
+      })),
+    projects: input.projects
+      .filter((p) => (p.title ?? "").trim())
+      .slice(0, maxProj)
+      .map((p) => ({
+        projectId: p.id,
+        title: p.title.trim(),
+        link: safeUrl(p.link),
+        bullets: p.bullets.filter((b) => b.trim()).slice(0, maxBullets),
+      })),
+    education: input.education
+      .filter((ed) => (ed.institution ?? "").trim())
+      .map((ed) => ({
+        educationId: ed.id,
+        institution: ed.institution.trim(),
+        degree: ed.degree,
+        fieldOfStudy: ed.fieldOfStudy,
+        startDate: ed.startDate,
+        endDate: ed.endDate,
+      })),
     warnings: [],
     suggestions: {
       projectIdeas: [],
@@ -144,6 +152,39 @@ function ruleBasedCompose(input: ComposerInput): ResumeJson {
       missingEvidence: computeMissingEvidence(input),
     },
   });
+}
+
+function safeNonEmpty(v: string | null | undefined, fallback: string): string {
+  const s = (v ?? "").trim();
+  return s.length ? s : fallback;
+}
+
+function safeEmail(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const s = v.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) ? s : null;
+}
+
+function safeUrl(v: string | null | undefined): string | null {
+  if (!v) return null;
+  try {
+    // eslint-disable-next-line no-new
+    new URL(v);
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeLinks(
+  links: { label: string; url: string }[]
+): { label: string; url: string }[] {
+  return links
+    .map((l) => ({
+      label: (l.label ?? "").trim(),
+      url: (l.url ?? "").trim(),
+    }))
+    .filter((l) => l.label.length > 0 && safeUrl(l.url) !== null);
 }
 
 function buildRuleSummary(input: ComposerInput): string {

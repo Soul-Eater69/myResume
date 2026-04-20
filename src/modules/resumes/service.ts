@@ -126,10 +126,25 @@ export async function generateResume(userId: string, input: GenerateInput) {
   });
 
   const report = validateGeneratedResume(draft, ctx);
-  const finalJson: ResumeJson = resumeJsonSchema.parse({
+  const candidate = {
     ...report.cleaned,
     warnings: [...report.cleaned.warnings, ...report.errors.map((e) => `rejected: ${e}`)],
-  });
+  };
+  const parsed = resumeJsonSchema.safeParse(candidate);
+  const finalJson: ResumeJson = parsed.success
+    ? parsed.data
+    : resumeJsonSchema.parse({
+        ...report.cleaned,
+        basics: { ...report.cleaned.basics, links: [] },
+        projects: report.cleaned.projects.map((p) => ({ ...p, link: null })),
+        warnings: [
+          ...report.cleaned.warnings,
+          ...report.errors.map((e) => `rejected: ${e}`),
+          ...parsed.error.issues.map(
+            (i) => `schema: ${i.path.join(".")} ${i.message}`
+          ),
+        ],
+      });
 
   const html = renderResumeHtml(finalJson);
 

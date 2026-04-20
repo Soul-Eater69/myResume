@@ -35,6 +35,10 @@ async function gh<T>(path: string, token: string): Promise<T> {
 export async function connectGithub(userId: string, token: string) {
   if (!token || token.length < 20) throw badRequest("invalid token");
   const encrypted = encryptSecret(token);
+  const existing = await db.githubConnection.findUnique({ where: { userId } });
+  if (existing) {
+    await db.githubRepo.deleteMany({ where: { userId } });
+  }
   return db.githubConnection.upsert({
     where: { userId },
     create: { userId, accessTokenEncrypted: encrypted },
@@ -44,10 +48,8 @@ export async function connectGithub(userId: string, token: string) {
 }
 
 export async function disconnectGithub(userId: string) {
-  await db.githubConnection.updateMany({
-    where: { userId },
-    data: { connectionStatus: "disconnected", accessTokenEncrypted: null },
-  });
+  await db.githubRepo.deleteMany({ where: { userId } });
+  await db.githubConnection.deleteMany({ where: { userId } });
 }
 
 async function getToken(userId: string): Promise<string> {
@@ -78,6 +80,11 @@ export async function syncRepos(userId: string) {
     "/user/repos?per_page=100&sort=pushed&affiliation=owner,collaborator",
     token
   );
+
+  const incomingIds = new Set(repos.map((r) => String(r.id)));
+  await db.githubRepo.deleteMany({
+    where: { userId, externalRepoId: { notIn: Array.from(incomingIds) } },
+  });
 
   const results = [] as { id: string; name: string }[];
   let languageFailures = 0;
