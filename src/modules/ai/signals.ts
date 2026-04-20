@@ -5,15 +5,19 @@ import {
   inferSeniority,
   topKeywords,
 } from "./keywords";
-import { extractJsonBlock, isLlmAvailable, llmJson } from "./provider";
+import { extractJsonBlock, isLlmAvailableFor, llmJson } from "./provider";
 
-export async function extractJobSignals(jdText: string): Promise<JobSignals> {
-  if (isLlmAvailable()) {
+export async function extractJobSignals(
+  jdText: string,
+  userId?: string | null
+): Promise<JobSignals> {
+  if (await isLlmAvailableFor(userId)) {
     const result = await llmJson<JobSignals>({
       system: SIGNAL_SYSTEM_PROMPT,
       user: `Job description:\n\n${jdText}\n\nReturn JSON only.`,
       parse: (raw) => jobSignalsSchema.parse(JSON.parse(extractJsonBlock(raw))),
       maxTokens: 1200,
+      userId,
     });
     if (result.ok) return result.data;
   }

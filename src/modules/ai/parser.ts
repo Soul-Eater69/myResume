@@ -1,5 +1,5 @@
 import { RESUME_PARSE_SYSTEM_PROMPT } from "./prompts";
-import { extractJsonBlock, isLlmAvailable, llmJson } from "./provider";
+import { extractJsonBlock, isLlmAvailableFor, llmJson } from "./provider";
 
 export type ParsedResume = {
   basics: {
@@ -38,13 +38,17 @@ export type ParsedResume = {
   certifications: Array<{ name: string; issuer: string | null }>;
 };
 
-export async function parseResumeText(text: string): Promise<ParsedResume> {
-  if (isLlmAvailable()) {
+export async function parseResumeText(
+  text: string,
+  userId?: string | null
+): Promise<ParsedResume> {
+  if (await isLlmAvailableFor(userId)) {
     const result = await llmJson<ParsedResume>({
       system: RESUME_PARSE_SYSTEM_PROMPT,
       user: `Raw resume text:\n\n${text}`,
       parse: (raw) => JSON.parse(extractJsonBlock(raw)) as ParsedResume,
       maxTokens: 3500,
+      userId,
     });
     if (result.ok) return result.data;
   }

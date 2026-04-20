@@ -62,7 +62,7 @@ export async function deleteJob(userId: string, id: string) {
 export async function runExtraction(jobId: string): Promise<JobSignals> {
   const job = await db.job.findUnique({ where: { id: jobId } });
   if (!job) throw notFound("job not found");
-  const signals = await extractJobSignals(job.jdText);
+  const signals = await extractJobSignals(job.jdText, job.userId);
   await db.jobSignal.upsert({
     where: { jobId },
     create: {

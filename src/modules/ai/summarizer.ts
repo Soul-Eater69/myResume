@@ -1,5 +1,5 @@
 import { REPO_SUMMARY_SYSTEM_PROMPT } from "./prompts";
-import { extractJsonBlock, isLlmAvailable, llmJson } from "./provider";
+import { extractJsonBlock, isLlmAvailableFor, llmJson } from "./provider";
 import { extractSkills } from "./keywords";
 
 export type RepoSummaryDraft = {
@@ -20,20 +20,24 @@ export type RepoSummaryResult = {
   source: "llm" | "rule_based";
 };
 
-export async function summarizeRepo(input: {
-  name: string;
-  description: string | null;
-  languages: string[];
-  topics: string[];
-  readmeText: string | null;
-  stars: number;
-}): Promise<RepoSummaryResult> {
-  if (isLlmAvailable()) {
+export async function summarizeRepo(
+  input: {
+    name: string;
+    description: string | null;
+    languages: string[];
+    topics: string[];
+    readmeText: string | null;
+    stars: number;
+  },
+  userId?: string | null
+): Promise<RepoSummaryResult> {
+  if (await isLlmAvailableFor(userId)) {
     const result = await llmJson<RepoSummaryDraft>({
       system: REPO_SUMMARY_SYSTEM_PROMPT,
       user: buildRepoPrompt(input),
       parse: (raw) => JSON.parse(extractJsonBlock(raw)) as RepoSummaryDraft,
       maxTokens: 1400,
+      userId,
     });
     if (result.ok) return { draft: result.data, source: "llm" };
   }

@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { listRepos, listImportedRepoUrls } from "@/modules/github/service";
-import { isLlmAvailable } from "@/modules/ai/provider";
+import { isLlmAvailableFor } from "@/modules/ai/provider";
 import { PageHeader } from "@/components/layout/dashboard-shell";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge, StatusDot } from "@/components/ui/badge";
@@ -17,7 +17,7 @@ export default async function GithubPage() {
   const [repos, importedUrls] = connected
     ? await Promise.all([listRepos(user.id), listImportedRepoUrls(user.id)])
     : [[] as Awaited<ReturnType<typeof listRepos>>, new Set<string>()];
-  const llm = isLlmAvailable();
+  const llm = await isLlmAvailableFor(user.id);
 
   const summarizedCount = repos.filter((r) => r.summary).length;
   const importedCount = repos.filter((r) => importedUrls.has(r.htmlUrl)).length;
@@ -32,8 +32,9 @@ export default async function GithubPage() {
 
       {!llm ? (
         <Alert variant="warning" title="Deterministic summary mode" className="mb-4">
-          <code className="text-xs">ANTHROPIC_API_KEY</code> isn&apos;t set — repo summaries fall back
-          to README + metadata extraction. Add the key to enable AI bullet drafting.
+          No AI provider key is configured — repo summaries fall back to README + metadata
+          extraction. Configure Claude or GPT in <a href="/settings" className="underline">Settings</a>
+          {" "}to enable AI bullet drafting.
         </Alert>
       ) : null}
 

@@ -36,7 +36,7 @@ export async function parseUpload(userId: string, uploadId: string) {
     const data = await getObject(upload.storageKey);
     const text = await extractText(data, upload.mimeType);
     if (!text.trim()) throw badRequest("could not extract text from upload");
-    const parsed = await parseResumeText(text);
+    const parsed = await parseResumeText(text, userId);
     await db.uploadedFile.update({
       where: { id: uploadId },
       data: { parseStatus: "completed" },

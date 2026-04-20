@@ -171,14 +171,17 @@ export async function summarizeRepoById(userId: string, repoId: string) {
     readme = null;
   }
 
-  const { draft, source } = await summarizeRepo({
-    name: repo.name,
-    description: repo.description,
-    languages: toStringArray(repo.languages),
-    topics: toStringArray(repo.topics),
-    readmeText: readme,
-    stars: repo.stars ?? 0,
-  });
+  const { draft, source } = await summarizeRepo(
+    {
+      name: repo.name,
+      description: repo.description,
+      languages: toStringArray(repo.languages),
+      topics: toStringArray(repo.topics),
+      readmeText: readme,
+      stars: repo.stars ?? 0,
+    },
+    userId
+  );
 
   const saved = await db.repoSummary.upsert({
     where: { repoId },

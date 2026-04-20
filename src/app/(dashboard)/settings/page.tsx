@@ -1,17 +1,17 @@
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { isLlmAvailable } from "@/modules/ai/provider";
+import { getAiSetting } from "@/modules/ai/settings";
 import { PageHeader } from "@/components/layout/dashboard-shell";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge, StatusDot } from "@/components/ui/badge";
+import { StatusDot } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
+import { AiSettingsForm } from "./ai-form";
 
 export default async function SettingsPage() {
   const user = await requireUser();
   const conn = await db.githubConnection.findUnique({ where: { userId: user.id } });
   const githubConnected = conn?.connectionStatus === "active";
-  const llm = isLlmAvailable();
-  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+  const ai = await getAiSetting(user.id);
   const initials = (user.name || user.email).slice(0, 2).toUpperCase();
 
   return (
@@ -21,8 +21,8 @@ export default async function SettingsPage() {
         description="Account details and integrations for this workspace."
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-1">
           <CardTitle>Account</CardTitle>
           <CardDescription className="mt-1">
             Your profile and sign-in identity.
@@ -45,44 +45,22 @@ export default async function SettingsPage() {
           </dl>
         </Card>
 
-        <Card>
-          <CardTitle>AI provider</CardTitle>
-          <CardDescription className="mt-1">
-            Claude powers signal extraction, parsing, summarization, and resume composition.
-          </CardDescription>
-          <div className="mt-4 space-y-3">
-            <StatusRow
-              icon={<Icon.Sparkles className="h-4 w-4" />}
-              label="Status"
-              status={llm ? "success" : "neutral"}
-              value={
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-fg-muted">
-                    {llm ? "Enabled" : "Disabled"}
-                  </span>
-                  {llm ? (
-                    <Badge variant="verified">Live</Badge>
-                  ) : (
-                    <Badge variant="review">Rule-based fallback</Badge>
-                  )}
-                </div>
-              }
-            />
-            <StatusRow
-              icon={<Icon.Bolt className="h-4 w-4" />}
-              label="Model"
-              status="info"
-              value={<code className="text-xs">{model}</code>}
-            />
+        <Card className="lg:col-span-2">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle>AI provider</CardTitle>
+              <CardDescription className="mt-1">
+                Pick the model that powers signal extraction, parsing, summarization, and
+                resume composition. Keys are encrypted at rest.
+              </CardDescription>
+            </div>
           </div>
-          <div className="mt-4 rounded-md bg-surface-subtle border border-border-subtle p-3 text-xs text-fg-muted leading-relaxed">
-            Set <code className="text-[11px]">ANTHROPIC_API_KEY</code> in your environment to
-            enable AI flows. Without a key the system falls back to deterministic rule-based
-            processing so the platform remains usable offline.
+          <div className="mt-5">
+            <AiSettingsForm initial={ai} />
           </div>
         </Card>
 
-        <Card>
+        <Card className="lg:col-span-1">
           <CardTitle>Integrations</CardTitle>
           <CardDescription className="mt-1">
             Connected services that feed evidence into your resumes.
@@ -98,13 +76,14 @@ export default async function SettingsPage() {
           </div>
         </Card>
 
-        <Card>
+        <Card className="lg:col-span-2">
           <CardTitle>Security</CardTitle>
           <CardDescription className="mt-1">
             How we handle your tokens and personal data.
           </CardDescription>
-          <ul className="mt-4 space-y-2.5 text-sm">
+          <ul className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2.5 text-sm">
             <Check>Personal access tokens are encrypted at rest.</Check>
+            <Check>Provider API keys are encrypted with AES-256-GCM.</Check>
             <Check>Summaries stay review-needed until you verify them.</Check>
             <Check>AI-generated content is never published on your behalf.</Check>
           </ul>
@@ -119,31 +98,6 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex items-center justify-between py-2.5">
       <dt className="text-fg-subtle">{label}</dt>
       <dd className="text-right min-w-0 truncate">{value}</dd>
-    </div>
-  );
-}
-
-function StatusRow({
-  icon,
-  label,
-  status,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  status: "success" | "neutral" | "info" | "warning" | "danger";
-  value: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-1">
-      <div className="flex items-center gap-2 text-sm text-fg-muted">
-        <span className="text-fg-subtle">{icon}</span>
-        {label}
-      </div>
-      <div className="flex items-center gap-2">
-        <StatusDot status={status} />
-        {value}
-      </div>
     </div>
   );
 }

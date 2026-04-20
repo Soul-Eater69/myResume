@@ -113,7 +113,7 @@ export async function generateResume(userId: string, input: GenerateInput) {
     pageConstraint: input.pageConstraint,
   };
 
-  const draft = await composeResumeDraft(composerInput);
+  const draft = await composeResumeDraft(composerInput, userId);
 
   const ctx = buildContext({
     experiences: composerInput.experiences.map((e) => ({ id: e.id, company: e.company })),

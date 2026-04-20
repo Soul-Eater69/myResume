@@ -30,8 +30,25 @@ model User {
   resumeVersions    ResumeVersion[]
   applications      Application[]
   aiGenerationLogs  AiGenerationLog[]
+  aiSetting         AiSetting?
 
   @@map("users")
+}
+
+model AiSetting {
+  id                      String   @id @default(uuid())
+  userId                  String   @unique @map("user_id")
+  provider                String   @default("anthropic")
+  anthropicModel          String?  @map("anthropic_model")
+  openaiModel             String?  @map("openai_model")
+  anthropicKeyEncrypted   String?  @map("anthropic_key_encrypted")
+  openaiKeyEncrypted      String?  @map("openai_key_encrypted")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ai_settings")
 }
 
 model Profile {

@@ -1,7 +1,7 @@
 import type { JobSignals } from "@/schemas/job-signals";
 import { resumeJsonSchema, type ResumeJson } from "@/schemas/resume";
 import { RESUME_SYSTEM_PROMPT } from "./prompts";
-import { extractJsonBlock, isLlmAvailable, llmJson } from "./provider";
+import { extractJsonBlock, isLlmAvailableFor, llmJson } from "./provider";
 
 export type ComposerInput = {
   user: {
@@ -46,13 +46,17 @@ export type ComposerInput = {
   pageConstraint: "one_page" | "two_page";
 };
 
-export async function composeResumeDraft(input: ComposerInput): Promise<ResumeJson> {
-  if (isLlmAvailable()) {
+export async function composeResumeDraft(
+  input: ComposerInput,
+  userId?: string | null
+): Promise<ResumeJson> {
+  if (await isLlmAvailableFor(userId)) {
     const result = await llmJson<ResumeJson>({
       system: RESUME_SYSTEM_PROMPT,
       user: buildComposerPrompt(input),
       parse: (raw) => resumeJsonSchema.parse(JSON.parse(extractJsonBlock(raw))),
       maxTokens: 3000,
+      userId,
     });
     if (result.ok) return result.data;
   }
