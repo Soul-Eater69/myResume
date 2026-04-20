@@ -21,15 +21,7 @@ export function Topbar({ userName, userEmail }: { userName: string; userEmail?: 
     .toUpperCase();
 
   return (
-    <header className="h-14 border-b border-border bg-white/80 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-20">
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="hidden md:flex items-center gap-2 text-fg-subtle">
-          <Icon.Search className="h-4 w-4" />
-          <span className="text-xs">Quick search</span>
-          <span className="kbd">⌘</span>
-          <span className="kbd">K</span>
-        </div>
-      </div>
+    <header className="h-14 border-b border-border bg-white/80 backdrop-blur-sm flex items-center justify-end px-6 sticky top-0 z-20">
       <div className="flex items-center gap-3">
         <div className="hidden sm:flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold">

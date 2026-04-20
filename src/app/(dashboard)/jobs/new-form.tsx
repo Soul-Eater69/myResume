@@ -40,7 +40,7 @@ export function NewJobForm() {
 
   return (
     <div className="mt-4 space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Company">
           <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Acme Inc." />
         </Field>

@@ -43,7 +43,7 @@ export default async function ResumeBuilderPage({
         title={`Resume builder — ${job.title ?? "job"}`}
         description={`${job.company ?? ""} · tailored to this JD`}
         actions={
-          <Link className="btn-outline" href={`/jobs/${job.id}`}>
+          <Link className="btn btn-md btn-outline" href={`/jobs/${job.id}`}>
             ← Back to job
           </Link>
         }
