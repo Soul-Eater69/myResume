@@ -1,41 +1,39 @@
 "use client";
+
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input, Field } from "@/components/ui/input";
+import { Alert } from "@/components/ui/alert";
 import { Icon } from "@/components/ui/icon";
 import { useToast } from "@/components/ui/toast";
 
-export function ConnectForm({ connected }: { connected: boolean }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [token, setToken] = useState("");
-  const [loading, setLoading] = useState<"connect" | "disconnect" | null>(null);
-  const [error, setError] = useState<string | null>(null);
+const GITHUB_CONNECT_URL =
+  "/api/auth/github/start?intent=connect&returnTo=/github&errorReturnTo=/github";
 
-  async function connect() {
-    if (token.length < 20) {
-      setError("Token looks too short (expected >= 20 chars).");
+export function ConnectForm({
+  connected,
+  oauthConfigured,
+}: {
+  connected: boolean;
+  oauthConfigured: boolean;
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const toast = useToast();
+  const [loading, setLoading] = useState<"connect" | "disconnect" | null>(null);
+
+  const githubError = searchParams.get("githubError");
+
+  function connect() {
+    if (!oauthConfigured) {
+      toast.error(
+        "GitHub OAuth not configured",
+        "Add GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET on the server first."
+      );
       return;
     }
-    setError(null);
     setLoading("connect");
-    const res = await fetch("/api/github/connect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    });
-    setLoading(null);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      const msg = data.message || "Could not save token.";
-      setError(msg);
-      toast.error("Connect failed", msg);
-      return;
-    }
-    setToken("");
-    toast.success(connected ? "Token updated" : "GitHub connected");
-    router.refresh();
+    window.location.assign(GITHUB_CONNECT_URL);
   }
 
   async function disconnect() {
@@ -52,35 +50,34 @@ export function ConnectForm({ connected }: { connected: boolean }) {
 
   return (
     <div className="space-y-3">
-      <Field
-        label="Personal access token"
-        hint="Create a token with repo:read scope and paste it here."
-        error={error ?? undefined}
-      >
-        <Input
-          type="password"
-          value={token}
-          onChange={(e) => { setToken(e.target.value); setError(null); }}
-          placeholder="ghp_…"
-          error={Boolean(error)}
-        />
-      </Field>
-      <div className="flex gap-2">
+      {githubError ? <Alert variant="danger">{githubError}</Alert> : null}
+      {!oauthConfigured ? (
+        <Alert variant="warning" title="GitHub OAuth not configured">
+          Add <code>GITHUB_CLIENT_ID</code> and <code>GITHUB_CLIENT_SECRET</code> to the server
+          environment to enable one-click GitHub connect.
+        </Alert>
+      ) : (
+        <Alert variant="info" title="Connect with GitHub OAuth">
+          We request GitHub access through OAuth and store the returned token encrypted at rest.
+          No personal access token needs to be pasted into the app.
+        </Alert>
+      )}
+      <div className="flex gap-2 flex-wrap">
         <Button
           onClick={connect}
-          disabled={!token}
+          disabled={!oauthConfigured}
           loading={loading === "connect"}
-          loadingText="Saving…"
-          leftIcon={<Icon.Link className="h-4 w-4" />}
+          loadingText="Redirecting..."
+          leftIcon={<Icon.Github className="h-4 w-4" />}
         >
-          {connected ? "Update token" : "Connect"}
+          {connected ? "Reconnect with GitHub" : "Connect with GitHub"}
         </Button>
         {connected ? (
           <Button
             variant="outline"
             onClick={disconnect}
             loading={loading === "disconnect"}
-            loadingText="Disconnecting…"
+            loadingText="Disconnecting..."
           >
             Disconnect
           </Button>
@@ -103,7 +100,7 @@ export function SyncButton() {
       const data = await res.json().catch(() => ({}));
       toast.error(
         "Sync failed",
-        data.message || "GitHub may be rate-limiting or the token is invalid."
+        data.message || "GitHub access may have expired. Reconnect and try again."
       );
       return;
     }
@@ -121,7 +118,7 @@ export function SyncButton() {
       size="sm"
       onClick={onClick}
       loading={loading}
-      loadingText="Syncing…"
+      loadingText="Syncing..."
       leftIcon={<Icon.RefreshCw className="h-3.5 w-3.5" />}
     >
       Sync repos
@@ -155,7 +152,7 @@ export function RepoActions({
     if (data?.fallback) {
       toast.info(
         "Deterministic summary",
-        "AI unavailable — used README + metadata. Review bullets before import."
+        "AI unavailable - used README + metadata. Review bullets before import."
       );
     } else {
       toast.success("Summary ready");
@@ -172,7 +169,7 @@ export function RepoActions({
       toast.error("Import failed", data.message || "Summarize the repo first.");
       return;
     }
-    toast.success("Imported to projects", "Review & verify on the Projects page.");
+    toast.success("Imported to projects", "Review and verify on the Projects page.");
     router.refresh();
   }
 
@@ -183,7 +180,7 @@ export function RepoActions({
         size="sm"
         onClick={summarize}
         loading={loading === "summarize"}
-        loadingText="Summarizing…"
+        loadingText="Summarizing..."
         leftIcon={<Icon.Sparkles className="h-3.5 w-3.5" />}
       >
         {hasSummary ? "Re-summarize" : "Summarize"}
@@ -193,7 +190,7 @@ export function RepoActions({
         onClick={importToProject}
         disabled={!hasSummary}
         loading={loading === "import"}
-        loadingText="Importing…"
+        loadingText="Importing..."
         leftIcon={imported ? <Icon.Check className="h-3.5 w-3.5" /> : <Icon.Plus className="h-3.5 w-3.5" />}
       >
         {imported ? "Re-import" : "Import to projects"}

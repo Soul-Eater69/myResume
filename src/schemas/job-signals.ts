@@ -9,6 +9,7 @@ export const jobSignalsSchema = z.object({
     .enum(["intern", "junior", "mid", "senior", "staff", "principal", "lead", "unspecified"])
     .default("unspecified"),
   summary: z.string().default(""),
+  archetype: z.string().optional(), // e.g., "AI Platform Engineer", "Technical AI PM", "Agentic/Automation Engineer"
 });
 
 export type JobSignals = z.infer<typeof jobSignalsSchema>;

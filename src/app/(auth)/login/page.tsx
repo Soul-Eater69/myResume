@@ -1,35 +1,64 @@
 "use client";
+
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Field } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
 import { Icon } from "@/components/ui/icon";
 
+const GITHUB_LOGIN_URL =
+  "/api/auth/github/start?intent=login&returnTo=/dashboard&errorReturnTo=/login";
+
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageContent authError={null} />}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
+  const searchParams = useSearchParams();
+  return <LoginPageContent authError={searchParams.get("authError")} />;
+}
+
+function LoginPageContent({ authError }: { authError: string | null }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [githubLoading, setGithubLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    setLoading(false);
-    if (!res.ok) {
-      setError("Invalid email or password.");
-      return;
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) {
+        setError("Invalid email or password.");
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } finally {
+      setLoading(false);
     }
-    router.push("/dashboard");
-    router.refresh();
+  }
+
+  function startGithubLogin() {
+    setGithubLoading(true);
+    window.location.assign(GITHUB_LOGIN_URL);
   }
 
   return (
@@ -46,6 +75,24 @@ export default function LoginPage() {
           <div>
             <h1 className="text-lg font-semibold text-fg">Welcome back</h1>
             <p className="text-sm text-fg-muted mt-0.5">Sign in to your workspace.</p>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={startGithubLogin}
+            loading={githubLoading}
+            loadingText="Redirecting..."
+            fullWidth
+            leftIcon={<Icon.Github className="h-4 w-4" />}
+          >
+            Continue with GitHub
+          </Button>
+
+          <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-fg-faint">
+            <div className="h-px flex-1 bg-border-subtle" />
+            <span>or</span>
+            <div className="h-px flex-1 bg-border-subtle" />
           </div>
 
           <Field label="Email" htmlFor="email">
@@ -71,9 +118,9 @@ export default function LoginPage() {
             />
           </Field>
 
-          {error ? <Alert variant="danger">{error}</Alert> : null}
+          {error || authError ? <Alert variant="danger">{error ?? authError}</Alert> : null}
 
-          <Button type="submit" loading={loading} loadingText="Signing in…" fullWidth>
+          <Button type="submit" loading={loading} loadingText="Signing in..." fullWidth>
             Sign in
           </Button>
 

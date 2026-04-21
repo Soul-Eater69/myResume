@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { listRepos, listImportedRepoUrls } from "@/modules/github/service";
 import { isLlmAvailableFor } from "@/modules/ai/provider";
+import { isGithubOAuthConfigured } from "@/modules/auth/github-oauth";
 import { PageHeader } from "@/components/layout/dashboard-shell";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge, StatusDot } from "@/components/ui/badge";
@@ -18,9 +19,10 @@ export default async function GithubPage() {
     ? await Promise.all([listRepos(user.id), listImportedRepoUrls(user.id)])
     : [[] as Awaited<ReturnType<typeof listRepos>>, new Set<string>()];
   const llm = await isLlmAvailableFor(user.id);
+  const oauthConfigured = isGithubOAuthConfigured();
 
-  const summarizedCount = repos.filter((r) => r.summary).length;
-  const importedCount = repos.filter((r) => importedUrls.has(r.htmlUrl)).length;
+  const summarizedCount = repos.filter((repo) => repo.summary).length;
+  const importedCount = repos.filter((repo) => importedUrls.has(repo.htmlUrl)).length;
 
   return (
     <>
@@ -32,7 +34,7 @@ export default async function GithubPage() {
 
       {!llm ? (
         <Alert variant="warning" title="Deterministic summary mode" className="mb-4">
-          No AI provider key is configured — repo summaries fall back to README + metadata
+          No AI provider key is configured - repo summaries fall back to README + metadata
           extraction. Configure Claude or GPT in <a href="/settings" className="underline">Settings</a>
           {" "}to enable AI bullet drafting.
         </Alert>
@@ -53,22 +55,21 @@ export default async function GithubPage() {
                 </span>
                 {connected ? (
                   <>
-                    <span className="text-fg-faint">·</span>
+                    <span className="text-fg-faint">-</span>
                     <span className="text-xs text-fg-subtle">
-                      {repos.length} repos · {summarizedCount} summarized · {importedCount} imported
+                      {repos.length} repos - {summarizedCount} summarized - {importedCount} imported
                     </span>
                   </>
                 ) : null}
               </div>
               <CardDescription className="mt-2">
-                Create a GitHub personal access token with <code className="text-xs">repo</code> read
-                scope and paste it here. Tokens are encrypted at rest.
+                Connect GitHub with OAuth to sync repos, summarize them, and import the best ones as project evidence.
               </CardDescription>
             </div>
           </div>
         </div>
         <div className="mt-4 max-w-xl">
-          <ConnectForm connected={connected} />
+          <ConnectForm connected={connected} oauthConfigured={oauthConfigured} />
         </div>
       </Card>
 
@@ -76,7 +77,11 @@ export default async function GithubPage() {
         <Empty
           icon={<Icon.Github className="h-5 w-5" />}
           title="Connect GitHub to pull in repos"
-          description="Once connected, we'll list your repositories so you can summarize and import them as projects."
+          description={
+            oauthConfigured
+              ? "Once connected, we'll list your repositories so you can summarize and import them as projects."
+              : "Add GitHub OAuth credentials to the server, then connect your account to sync repos."
+          }
         />
       ) : repos.length === 0 ? (
         <Empty
@@ -86,36 +91,36 @@ export default async function GithubPage() {
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {repos.map((r) => {
-            const languages = toStringArray(r.languages);
-            const bullets = r.summary
-              ? toStringArray(r.summary.resumeReadyBullets)
+          {repos.map((repo) => {
+            const languages = toStringArray(repo.languages);
+            const bullets = repo.summary
+              ? toStringArray(repo.summary.resumeReadyBullets)
               : [];
-            const imported = importedUrls.has(r.htmlUrl);
+            const imported = importedUrls.has(repo.htmlUrl);
             return (
-              <Card key={r.id} className="flex flex-col">
+              <Card key={repo.id} className="flex flex-col">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <a
-                      href={r.htmlUrl}
+                      href={repo.htmlUrl}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1.5 text-sm font-semibold text-fg hover:text-brand-700"
                     >
-                      <span className="truncate">{r.name}</span>
+                      <span className="truncate">{repo.name}</span>
                       <Icon.ExternalLink className="h-3 w-3 text-fg-faint" />
                     </a>
                     <div className="text-xs text-fg-subtle mt-0.5 truncate">
-                      {r.fullName}
+                      {repo.fullName}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1 shrink-0 justify-end">
-                    {r.isPrivate ? <Badge variant="default">Private</Badge> : null}
+                    {repo.isPrivate ? <Badge variant="default">Private</Badge> : null}
                     {imported ? (
                       <Badge variant="verified" leftIcon={<Icon.Check className="h-3 w-3" />}>
                         Imported
                       </Badge>
-                    ) : r.summary ? (
+                    ) : repo.summary ? (
                       <Badge variant="suggested">Summarized</Badge>
                     ) : (
                       <Badge variant="review">Not summarized</Badge>
@@ -123,30 +128,30 @@ export default async function GithubPage() {
                   </div>
                 </div>
 
-                {r.description ? (
-                  <p className="text-sm text-fg-muted mt-2 line-clamp-2">{r.description}</p>
+                {repo.description ? (
+                  <p className="text-sm text-fg-muted mt-2 line-clamp-2">{repo.description}</p>
                 ) : null}
 
                 {languages.length ? (
                   <div className="flex flex-wrap gap-1 mt-2.5">
-                    {languages.slice(0, 4).map((l) => (
-                      <span className="chip" key={l}>{l}</span>
+                    {languages.slice(0, 4).map((language) => (
+                      <span className="chip" key={language}>{language}</span>
                     ))}
                   </div>
                 ) : null}
 
-                {r.summary ? (
+                {repo.summary ? (
                   <div className="mt-3 rounded-md border border-border-subtle bg-surface-subtle/60 p-3">
                     <div className="text-xs font-medium text-fg-muted uppercase tracking-wide">
                       Summary
                     </div>
-                    {r.summary.summary ? (
-                      <p className="text-sm text-fg mt-1.5 line-clamp-3">{r.summary.summary}</p>
+                    {repo.summary.summary ? (
+                      <p className="text-sm text-fg mt-1.5 line-clamp-3">{repo.summary.summary}</p>
                     ) : null}
                     {bullets.length ? (
                       <ul className="text-xs text-fg-muted list-disc pl-4 mt-2 space-y-1">
-                        {bullets.slice(0, 3).map((b, i) => (
-                          <li key={i} className="line-clamp-2">{b}</li>
+                        {bullets.slice(0, 3).map((bullet, index) => (
+                          <li key={index} className="line-clamp-2">{bullet}</li>
                         ))}
                       </ul>
                     ) : null}
@@ -155,8 +160,8 @@ export default async function GithubPage() {
 
                 <div className="mt-auto pt-3">
                   <RepoActions
-                    repoId={r.id}
-                    hasSummary={Boolean(r.summary)}
+                    repoId={repo.id}
+                    hasSummary={Boolean(repo.summary)}
                     imported={imported}
                   />
                 </div>
@@ -169,8 +174,8 @@ export default async function GithubPage() {
   );
 }
 
-function toStringArray(v: unknown): string[] {
-  if (!v) return [];
-  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string");
+function toStringArray(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter((entry): entry is string => typeof entry === "string");
   return [];
 }

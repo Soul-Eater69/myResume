@@ -2,6 +2,8 @@ import { handle, ok, parseJson } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { aiSettingSchema, getAiSetting, updateAiSetting } from "@/modules/ai/settings";
 
+export const dynamic = "force-dynamic";
+
 export const GET = handle(async () => {
   const user = await requireUser();
   return ok(await getAiSetting(user.id));

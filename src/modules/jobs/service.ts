@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "@/lib/errors";
 import type { JobInput, JobPatch } from "@/schemas/job";
-import { extractJobSignals } from "@/modules/ai/signals";
+import { extractJobSignals, inferArchetype } from "@/modules/ai/signals";
 import { rankCandidates, recencyFromDate } from "@/modules/ai/ranking";
 import { jobSignalsSchema, type JobSignals } from "@/schemas/job-signals";
 
@@ -104,6 +104,7 @@ export async function computeMatches(userId: string, jobId: string) {
       domainTags: job.signals.domainTags ?? [],
       seniority: job.signals.seniority ?? "unspecified",
       summary: job.signals.summary ?? "",
+      archetype: inferArchetype(job.jdText),
     });
   }
 

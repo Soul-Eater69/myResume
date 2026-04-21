@@ -23,6 +23,7 @@ export async function signup(input: SignupInput) {
 export async function login(input: LoginInput) {
   const user = await db.user.findUnique({ where: { email: input.email } });
   if (!user) throw unauthorized("invalid credentials");
+  if (!user.passwordHash) throw unauthorized("invalid credentials");
   const ok = await verifyPassword(input.password, user.passwordHash);
   if (!ok) throw unauthorized("invalid credentials");
   await issueSession(user.id);

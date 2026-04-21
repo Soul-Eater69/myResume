@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
@@ -6,6 +7,19 @@ import { unauthorized } from "./errors";
 
 const SESSION_COOKIE = "session";
 const SESSION_DAYS = 30;
+const GITHUB_OAUTH_STATE_COOKIE = "github_oauth_state";
+const GITHUB_OAUTH_STATE_MINUTES = 10;
+
+export type GithubOAuthIntent = "login" | "connect";
+
+type GithubOAuthStatePayload = {
+  type: "github_oauth_state";
+  nonce: string;
+  intent: GithubOAuthIntent;
+  returnTo: string;
+  errorReturnTo: string;
+  userId?: string;
+};
 
 function secretKey() {
   const s = process.env.SESSION_SECRET;
@@ -63,4 +77,75 @@ export async function requireUser() {
   const user = await db.user.findUnique({ where: { id } });
   if (!user) throw unauthorized();
   return user;
+}
+
+export function sanitizeAppPath(path: string | null | undefined, fallback: string) {
+  if (!path || !path.startsWith("/") || path.startsWith("//")) return fallback;
+  return path;
+}
+
+export async function issueGithubOAuthState({
+  intent,
+  returnTo,
+  errorReturnTo,
+  userId,
+}: {
+  intent: GithubOAuthIntent;
+  returnTo: string;
+  errorReturnTo: string;
+  userId?: string;
+}) {
+  const nonce = randomUUID();
+  const token = await new SignJWT({
+    type: "github_oauth_state",
+    nonce,
+    intent,
+    returnTo,
+    errorReturnTo,
+    userId,
+  } satisfies GithubOAuthStatePayload)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${GITHUB_OAUTH_STATE_MINUTES}m`)
+    .sign(secretKey());
+
+  const store = await cookies();
+  store.set(GITHUB_OAUTH_STATE_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: GITHUB_OAUTH_STATE_MINUTES * 60,
+  });
+
+  return nonce;
+}
+
+export async function consumeGithubOAuthState(expectedNonce: string) {
+  const store = await cookies();
+  const token = store.get(GITHUB_OAUTH_STATE_COOKIE)?.value;
+  store.delete(GITHUB_OAUTH_STATE_COOKIE);
+  if (!token) return null;
+
+  try {
+    const { payload } = await jwtVerify(token, secretKey());
+    if (
+      payload.type !== "github_oauth_state" ||
+      payload.nonce !== expectedNonce ||
+      (payload.intent !== "login" && payload.intent !== "connect") ||
+      typeof payload.returnTo !== "string" ||
+      typeof payload.errorReturnTo !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      intent: payload.intent as GithubOAuthIntent,
+      returnTo: payload.returnTo,
+      errorReturnTo: payload.errorReturnTo,
+      userId: typeof payload.userId === "string" ? payload.userId : undefined,
+    };
+  } catch {
+    return null;
+  }
 }
