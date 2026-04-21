@@ -51,7 +51,7 @@ export default async function ResumeBuilderPage({
               Interview Prep
             </Link>
             <Link className="btn-outline" href={`/jobs/${job.id}`}>
-              Back to job
+              ← Back to job
             </Link>
           </>
         }

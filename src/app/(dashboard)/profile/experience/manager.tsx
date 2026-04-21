@@ -83,7 +83,7 @@ export function ExperienceManager({ initial }: { initial: Experience[] }) {
             Company, role, dates, stack, and impact bullets.
           </CardDescription>
           <div className="mt-4 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Company">
                 <Input value={draft.company} onChange={(e) => setDraft({ ...draft, company: e.target.value })} placeholder="Acme Inc." />
               </Field>
@@ -94,7 +94,7 @@ export function ExperienceManager({ initial }: { initial: Experience[] }) {
             <Field label="Location">
               <Input value={draft.location} onChange={(e) => setDraft({ ...draft, location: e.target.value })} placeholder="Remote · San Francisco" />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Start">
                 <Input type="date" value={draft.startDate} onChange={(e) => setDraft({ ...draft, startDate: e.target.value })} />
               </Field>

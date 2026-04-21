@@ -34,8 +34,13 @@ export function handle(handler: (req: Request, ctx: any) => Promise<Response>) {
       return await handler(req, ctx);
     } catch (err) {
       if (err instanceof ZodError) {
+        const first = err.issues[0];
+        const path = first?.path?.length ? first.path.join(".") : "";
+        const message = first
+          ? `${path ? path + ": " : ""}${first.message}`
+          : "Invalid input.";
         return NextResponse.json(
-          { error: "validation_error", issues: err.issues },
+          { error: "validation_error", message, issues: err.issues },
           { status: 400 }
         );
       }

@@ -103,7 +103,7 @@ export function ProjectManager({ initial }: { initial: Project[] }) {
             <Field label="Title">
               <Input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Project name" />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Repo URL">
                 <Input value={draft.repoUrl} onChange={(e) => setDraft({ ...draft, repoUrl: e.target.value })} placeholder="https://github.com/..." />
               </Field>

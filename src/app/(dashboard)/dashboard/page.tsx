@@ -124,12 +124,23 @@ export default async function DashboardPage() {
                         {v.versionName ? <Badge className="ml-1">{v.versionName}</Badge> : null}
                       </div>
                     </div>
-                    <Link
-                      className="btn btn-sm btn-outline"
-                      href={`/resume-builder/${v.jobId ?? ""}`}
-                    >
-                      Open
-                    </Link>
+                    {v.jobId ? (
+                      <Link
+                        className="btn btn-sm btn-outline"
+                        href={`/resume-builder/${v.jobId}`}
+                      >
+                        Open
+                      </Link>
+                    ) : (
+                      <a
+                        className="btn btn-sm btn-outline"
+                        href={`/api/resumes/${v.resumeId}/preview`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Preview
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>

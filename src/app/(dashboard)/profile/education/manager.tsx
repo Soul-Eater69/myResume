@@ -70,7 +70,7 @@ export function EducationManager({ initial }: { initial: Edu[] }) {
             <Field label="Institution">
               <Input value={draft.institution} onChange={(e) => setDraft({ ...draft, institution: e.target.value })} placeholder="University of ..." />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Degree">
                 <Input value={draft.degree} onChange={(e) => setDraft({ ...draft, degree: e.target.value })} placeholder="B.S." />
               </Field>
@@ -78,7 +78,7 @@ export function EducationManager({ initial }: { initial: Edu[] }) {
                 <Input value={draft.fieldOfStudy} onChange={(e) => setDraft({ ...draft, fieldOfStudy: e.target.value })} placeholder="Computer Science" />
               </Field>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Start">
                 <Input type="date" value={draft.startDate} onChange={(e) => setDraft({ ...draft, startDate: e.target.value })} />
               </Field>

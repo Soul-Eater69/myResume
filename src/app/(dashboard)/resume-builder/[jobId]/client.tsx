@@ -158,7 +158,15 @@ export function ResumeBuilderClient({
       if (!res.ok) {
         const message =
           typeof data.message === "string" ? data.message : "Generation failed";
-        setErrors([message]);
+        const issueList = Array.isArray(data.issues)
+          ? data.issues
+              .map((issue: { path?: (string | number)[]; message?: string }) => {
+                const path = (issue.path ?? []).join(".");
+                return `${path ? `${path}: ` : ""}${issue.message ?? ""}`.trim();
+              })
+              .filter((item: string) => item.length > 0)
+          : [];
+        setErrors(issueList.length ? [message, ...issueList] : [message]);
         toast.error("Could not generate", message);
         return;
       }

@@ -155,33 +155,35 @@ function ruleBasedCompose(input: ComposerInput): ResumeJson {
 
   return resumeJsonSchema.parse({
     basics: {
-      name: input.user.name,
+      name: safeNonEmpty(input.user.name, "Unnamed"),
       headline: input.user.headline ?? null,
-      email: input.user.email,
+      email: safeEmail(input.user.email),
       phone: input.user.phone ?? null,
       location: input.user.location ?? null,
-      links: input.user.links,
+      links: sanitizeLinks(input.user.links),
     },
     summary,
     skills,
     experience: rankedExperiences.map((entry) => ({
       experienceId: entry.item.id,
-      company: entry.item.company,
-      title: entry.item.title,
+      company: entry.item.company.trim(),
+      title: entry.item.title.trim(),
       location: entry.item.location,
       startDate: entry.item.startDate,
       endDate: entry.item.endDate,
-      bullets: entry.orderedBullets,
+      bullets: entry.orderedBullets.filter((bullet) => bullet.trim()),
     })),
     projects: rankedProjects.map((entry) => ({
       projectId: entry.item.id,
-      title: entry.item.title,
-      link: entry.item.link,
-      bullets: entry.orderedBullets,
+      title: entry.item.title.trim(),
+      link: safeUrl(entry.item.link),
+      bullets: entry.orderedBullets.filter((bullet) => bullet.trim()),
     })),
-    education: input.education.map((ed) => ({
+    education: input.education
+      .filter((ed) => (ed.institution ?? "").trim())
+      .map((ed) => ({
       educationId: ed.id,
-      institution: ed.institution,
+      institution: ed.institution.trim(),
       degree: ed.degree,
       fieldOfStudy: ed.fieldOfStudy,
       startDate: ed.startDate,
@@ -218,6 +220,39 @@ function buildRuleSummary(input: ComposerInput, selectedSkills: string[]): strin
     ? `${stripTrailingPunctuation(base)}. ${additions.join(". ")}.`
     : base;
   return truncateSentence(summary, 400);
+}
+
+function safeNonEmpty(v: string | null | undefined, fallback: string): string {
+  const s = (v ?? "").trim();
+  return s.length ? s : fallback;
+}
+
+function safeEmail(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const s = v.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) ? s : null;
+}
+
+function safeUrl(v: string | null | undefined): string | null {
+  if (!v) return null;
+  try {
+    // eslint-disable-next-line no-new
+    new URL(v);
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeLinks(
+  links: { label: string; url: string }[]
+): { label: string; url: string }[] {
+  return links
+    .map((l) => ({
+      label: (l.label ?? "").trim(),
+      url: (l.url ?? "").trim(),
+    }))
+    .filter((l) => l.label.length > 0 && safeUrl(l.url) !== null);
 }
 
 function computeMissingEvidence(input: ComposerInput): string[] {
