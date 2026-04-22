@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getJob } from "@/modules/jobs/service";
 import { PageHeader } from "@/components/layout/dashboard-shell";
@@ -16,13 +15,17 @@ export default async function InterviewPrepPage({
   return (
     <>
       <PageHeader
-        title={`Interview prep — ${job.title ?? "job"}`}
-        description={`${job.company ?? ""} · prepare for this role`}
-        actions={
-          <Link className="btn-outline" href={`/jobs/${job.id}`}>
-            ← Back to job
-          </Link>
+        title="Interview prep"
+        description={
+          job.company
+            ? `${job.title ?? "Job"} · ${job.company} — prepare for this role`
+            : `${job.title ?? "Job"} — prepare for this role`
         }
+        breadcrumbs={[
+          { label: "Jobs", href: "/jobs" },
+          { label: job.title ?? "Job", href: `/jobs/${job.id}` },
+          { label: "Interview prep" },
+        ]}
       />
       <InterviewPrepClient jobId={jobId} job={job} />
     </>

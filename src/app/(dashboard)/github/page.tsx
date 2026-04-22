@@ -23,6 +23,7 @@ export default async function GithubPage() {
 
   const summarizedCount = repos.filter((repo) => repo.summary).length;
   const importedCount = repos.filter((repo) => importedUrls.has(repo.htmlUrl)).length;
+  const githubLogin = repos[0]?.fullName.split("/")[0] ?? null;
 
   return (
     <>
@@ -69,7 +70,7 @@ export default async function GithubPage() {
           </div>
         </div>
         <div className="mt-4 max-w-xl">
-          <ConnectForm connected={connected} oauthConfigured={oauthConfigured} />
+          <ConnectForm connected={connected} oauthConfigured={oauthConfigured} githubLogin={githubLogin} />
         </div>
       </Card>
 

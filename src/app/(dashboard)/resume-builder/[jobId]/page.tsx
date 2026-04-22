@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getArchetypeFocusAreas } from "@/modules/ai/signals";
 import { computeMatches, getJob } from "@/modules/jobs/service";
@@ -41,20 +40,17 @@ export default async function ResumeBuilderPage({
   return (
     <>
       <PageHeader
-        title={`Resume builder - ${job.title ?? "job"}`}
+        title="Resume builder"
         description={
-          job.company ? `${job.company} - tailored to this JD` : "Tailored to this JD"
+          job.company
+            ? `${job.title ?? "Job"} · ${job.company} — tailored to this JD`
+            : `${job.title ?? "Job"} — tailored to this JD`
         }
-        actions={
-          <>
-            <Link className="btn-outline" href={`/interview-prep/${job.id}`}>
-              Interview Prep
-            </Link>
-            <Link className="btn-outline" href={`/jobs/${job.id}`}>
-              ← Back to job
-            </Link>
-          </>
-        }
+        breadcrumbs={[
+          { label: "Jobs", href: "/jobs" },
+          { label: job.title ?? "Job", href: `/jobs/${job.id}` },
+          { label: "Resume builder" },
+        ]}
       />
 
       <ResumeBuilderClient

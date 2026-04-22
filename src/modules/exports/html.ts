@@ -16,7 +16,11 @@ function fmtDate(d?: string | null): string {
   return parsed.toLocaleString("en-US", { month: "short", year: "numeric" });
 }
 
-export function renderResumeHtml(resume: ResumeJson): string {
+export function renderResumeHtml(
+  resume: ResumeJson,
+  pageConstraint: "one_page" | "two_page" = "one_page"
+): string {
+  const twoPage = pageConstraint === "two_page";
   const b = resume.basics;
   const contact = [
     b.email ? esc(b.email) : null,
@@ -88,7 +92,9 @@ export function renderResumeHtml(resume: ResumeJson): string {
   li { margin: 2px 0; }
   .skills { display:flex; flex-wrap:wrap; gap:6px; }
   .skill { background:#eff6ff; color:#1e3a8a; padding:2px 8px; border-radius:999px; font-size:9.5pt; }
-  @media print { .page { padding: 18px 24px; } }
+  .page-break { border:none; border-top: 2px dashed #d1d5db; margin: 28px 0; padding-top: 4px; }
+  .page-break::before { content: "— Page 2 —"; font-size:8pt; color:#9ca3af; display:block; text-align:center; margin-bottom:4px; }
+  @media print { .page { padding: 18px 24px; } .page-break { break-before: page; border: none; } .page-break::before { display: none; } }
 </style>
 </head><body>
   <div class="page">
@@ -105,6 +111,7 @@ export function renderResumeHtml(resume: ResumeJson): string {
       .join("")}</div></section>` : ""}
 
     ${exp ? `<section><h2>Experience</h2>${exp}</section>` : ""}
+    ${twoPage && (projects || education) ? `<div class="page-break"></div>` : ""}
     ${projects ? `<section><h2>Projects</h2>${projects}</section>` : ""}
     ${education ? `<section><h2>Education</h2>${education}</section>` : ""}
   </div>

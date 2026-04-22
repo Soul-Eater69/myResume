@@ -13,14 +13,17 @@ const GITHUB_CONNECT_URL =
 export function ConnectForm({
   connected,
   oauthConfigured,
+  githubLogin,
 }: {
   connected: boolean;
   oauthConfigured: boolean;
+  githubLogin?: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
   const [loading, setLoading] = useState<"connect" | "disconnect" | null>(null);
+  const [justDisconnected, setJustDisconnected] = useState(false);
 
   const githubError = searchParams.get("githubError");
 
@@ -41,7 +44,7 @@ export function ConnectForm({
     const res = await fetch("/api/github/connect", { method: "DELETE" });
     setLoading(null);
     if (res.ok) {
-      toast.success("GitHub disconnected");
+      setJustDisconnected(true);
       router.refresh();
     } else {
       toast.error("Could not disconnect");
@@ -51,10 +54,34 @@ export function ConnectForm({
   return (
     <div className="space-y-3">
       {githubError ? <Alert variant="danger">{githubError}</Alert> : null}
-      {!oauthConfigured ? (
+
+      {justDisconnected ? (
+        <Alert variant="info" title="Disconnected">
+          GitHub has been unlinked.{" "}
+          <strong>To connect a different account</strong>, sign out of{" "}
+          <a href="https://github.com/logout" target="_blank" rel="noreferrer" className="underline">
+            GitHub.com
+          </a>{" "}
+          first, then click Connect.
+        </Alert>
+      ) : !oauthConfigured ? (
         <Alert variant="warning" title="GitHub OAuth not configured">
           Add <code>GITHUB_CLIENT_ID</code> and <code>GITHUB_CLIENT_SECRET</code> to the server
           environment to enable one-click GitHub connect.
+        </Alert>
+      ) : connected ? (
+        <Alert variant="info" title="Switching GitHub accounts?">
+          GitHub keeps you signed in across apps. To connect a <strong>different account</strong>,
+          disconnect below, sign out of{" "}
+          <a href="https://github.com/logout" target="_blank" rel="noreferrer" className="underline">
+            GitHub.com
+          </a>
+          , then reconnect.
+          {githubLogin ? (
+            <span className="block mt-1 text-xs text-fg-muted">
+              Currently linked: <strong>@{githubLogin}</strong>
+            </span>
+          ) : null}
         </Alert>
       ) : (
         <Alert variant="info" title="Connect with GitHub OAuth">
@@ -62,22 +89,23 @@ export function ConnectForm({
           No personal access token needs to be pasted into the app.
         </Alert>
       )}
+
       <div className="flex gap-2 flex-wrap">
         <Button
           onClick={connect}
           disabled={!oauthConfigured}
           loading={loading === "connect"}
-          loadingText="Redirecting..."
+          loadingText="Redirecting to GitHub…"
           leftIcon={<Icon.Github className="h-4 w-4" />}
         >
-          {connected ? "Reconnect with GitHub" : "Connect with GitHub"}
+          {connected && !justDisconnected ? "Reconnect GitHub" : "Connect with GitHub"}
         </Button>
-        {connected ? (
+        {connected && !justDisconnected ? (
           <Button
             variant="outline"
             onClick={disconnect}
             loading={loading === "disconnect"}
-            loadingText="Disconnecting..."
+            loadingText="Disconnecting…"
           >
             Disconnect
           </Button>

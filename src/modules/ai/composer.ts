@@ -73,7 +73,7 @@ export async function composeResumeDraft(
       system: RESUME_SYSTEM_PROMPT,
       user: buildComposerPrompt(input),
       parse: (raw) => resumeJsonSchema.parse(JSON.parse(extractJsonBlock(raw))),
-      maxTokens: 3000,
+      maxTokens: 4000,
       userId,
     });
     if (result.ok) return result.data;
@@ -85,41 +85,110 @@ function buildComposerPrompt(input: ComposerInput): string {
   const matchedSkills = getMatchedSkills(input);
   const missingEvidence = computeMissingEvidence(input);
   const focusAreas = getArchetypeFocusAreas(input.job.signals.archetype);
+  const pageLabel = input.pageConstraint === "one_page" ? "ONE page (max 3 exp, 2 proj, 3–4 bullets each)" : "TWO pages (max 5 exp, 4 proj, 4–5 bullets each)";
 
-  return [
-    `Target job: ${input.job.title ?? "(unspecified)"} at ${input.job.company ?? "(unspecified)"}`,
-    `Job summary: ${input.job.signals.summary}`,
-    `Archetype: ${input.job.signals.archetype ?? "Software Engineer"}`,
-    `Tailoring focus areas: ${focusAreas.join(", ") || "(none)"}`,
-    `Required skills: ${input.job.signals.requiredSkills.join(", ")}`,
-    `Preferred skills: ${input.job.signals.preferredSkills.join(", ")}`,
-    `Keywords: ${input.job.signals.keywords.join(", ")}`,
-    `Matched verified skills: ${matchedSkills.join(", ") || "(none)"}`,
-    `Missing verified evidence: ${missingEvidence.join(", ") || "(none)"}`,
-    `Page constraint: ${input.pageConstraint}`,
-    "",
-    "Guidance:",
-    "- Use only the selected evidence below.",
-    "- Keep uncovered requirements in suggestions.missingEvidence and suggestions.gapMitigation.",
-    "- Prefer moving the strongest matching bullets earlier instead of inventing new ones.",
-    "",
-    "Candidate basics:",
-    JSON.stringify(input.user, null, 2),
-    "",
-    "Candidate verified skills:",
-    input.verifiedSkills.join(", "),
-    "",
-    "Candidate experiences (use experienceId exactly):",
-    JSON.stringify(input.experiences, null, 2),
-    "",
-    "Candidate projects (use projectId exactly):",
-    JSON.stringify(input.projects, null, 2),
-    "",
-    "Candidate education (use educationId exactly):",
-    JSON.stringify(input.education, null, 2),
-    "",
-    "Return JSON only. Use the experienceId/projectId/educationId values exactly as provided.",
-  ].join("\n");
+  const lines: string[] = [];
+
+  // ── Target role ──────────────────────────────────────────────────────────
+  lines.push("═══ TARGET ROLE ═══");
+  lines.push(`Title:     ${input.job.title ?? "(unspecified)"}`);
+  lines.push(`Company:   ${input.job.company ?? "(unspecified)"}`);
+  lines.push(`Archetype: ${input.job.signals.archetype ?? "Software Engineer"}`);
+  lines.push(`Page constraint: ${pageLabel}`);
+  if (input.job.signals.summary) {
+    lines.push(`\nRole summary: ${input.job.signals.summary}`);
+  }
+
+  // ── Keyword intelligence ──────────────────────────────────────────────────
+  lines.push("\n═══ KEYWORD INTELLIGENCE ═══");
+  if (input.job.signals.requiredSkills.length) {
+    lines.push(`Required skills (weight these heavily): ${input.job.signals.requiredSkills.join(", ")}`);
+  }
+  if (input.job.signals.preferredSkills.length) {
+    lines.push(`Preferred skills: ${input.job.signals.preferredSkills.join(", ")}`);
+  }
+  if (focusAreas.length) {
+    lines.push(`Archetype focus areas: ${focusAreas.join(", ")}`);
+  }
+  if (input.job.signals.keywords.length) {
+    lines.push(`ATS keywords: ${input.job.signals.keywords.slice(0, 20).join(", ")}`);
+  }
+  lines.push(`\nCandidate's verified skill overlap: ${matchedSkills.length ? matchedSkills.join(", ") : "none — check preferred skills for partial matches"}`);
+  lines.push(`Skills NOT evidenced in profile: ${missingEvidence.length ? missingEvidence.join(", ") : "none"}`);
+  lines.push("→ Put unmatched required skills in suggestions.missingEvidence. Do NOT fabricate experience for them.");
+
+  // ── Candidate basics ──────────────────────────────────────────────────────
+  lines.push("\n═══ CANDIDATE BASICS ═══");
+  lines.push(`Name:     ${input.user.name}`);
+  if (input.user.email) lines.push(`Email:    ${input.user.email}`);
+  if (input.user.phone) lines.push(`Phone:    ${input.user.phone}`);
+  if (input.user.location) lines.push(`Location: ${input.user.location}`);
+  if (input.user.headline) lines.push(`Headline: ${input.user.headline}`);
+  if (input.user.summary) lines.push(`Bio: ${input.user.summary}`);
+  if (input.user.links.length) {
+    lines.push(`Links: ${input.user.links.map((l) => `${l.label} → ${l.url}`).join(" | ")}`);
+  }
+
+  // ── Verified skills ───────────────────────────────────────────────────────
+  if (input.verifiedSkills.length) {
+    lines.push(`\n═══ VERIFIED SKILLS ═══`);
+    lines.push(input.verifiedSkills.join(", "));
+  }
+
+  // ── Experiences ───────────────────────────────────────────────────────────
+  if (input.experiences.length) {
+    lines.push("\n═══ EXPERIENCES (use experienceId exactly) ═══");
+    for (const e of input.experiences) {
+      lines.push(`\n[experienceId: ${e.id}]`);
+      lines.push(`  ${e.title} at ${e.company}${e.location ? ` · ${e.location}` : ""}`);
+      lines.push(`  ${e.startDate ?? "?"} → ${e.endDate ?? "Present"}`);
+      const bullets = e.bullets.slice(0, 6).map(trimBullet);
+      if (bullets.length) {
+        lines.push("  Bullets (reorder and sharpen — do not invent new ones):");
+        for (const b of bullets) lines.push(`    • ${b}`);
+      } else {
+        lines.push("  Bullets: (none provided — leave bullets array empty)");
+      }
+    }
+  }
+
+  // ── Projects ──────────────────────────────────────────────────────────────
+  if (input.projects.length) {
+    lines.push("\n═══ PROJECTS (use projectId exactly) ═══");
+    for (const p of input.projects) {
+      lines.push(`\n[projectId: ${p.id}]`);
+      lines.push(`  ${p.title}${p.link ? ` — ${p.link}` : ""}`);
+      const bullets = p.bullets.slice(0, 5).map(trimBullet);
+      if (bullets.length) {
+        lines.push("  Bullets:");
+        for (const b of bullets) lines.push(`    • ${b}`);
+      } else {
+        lines.push("  Bullets: (none provided — leave bullets array empty)");
+      }
+    }
+  }
+
+  // ── Education ─────────────────────────────────────────────────────────────
+  if (input.education.length) {
+    lines.push("\n═══ EDUCATION (use educationId exactly) ═══");
+    for (const ed of input.education) {
+      lines.push(`\n[educationId: ${ed.id}]`);
+      lines.push(`  ${ed.institution}`);
+      if (ed.degree || ed.fieldOfStudy) {
+        lines.push(`  ${[ed.degree, ed.fieldOfStudy].filter(Boolean).join(", ")}`);
+      }
+      lines.push(`  ${ed.startDate ?? "?"} → ${ed.endDate ?? "Present"}`);
+    }
+  }
+
+  lines.push("\n═══ TASK ═══");
+  lines.push("Produce the tailored resume JSON now. Remember:");
+  lines.push("- Copy experienceId/projectId/educationId values character-for-character.");
+  lines.push("- Lead each experience with the bullet most relevant to the required skills.");
+  lines.push("- Write a tight 2–3 sentence summary grounded in the candidate's actual background.");
+  lines.push("- Return JSON only. No markdown, no commentary.");
+
+  return lines.join("\n");
 }
 
 function ruleBasedCompose(input: ComposerInput): ResumeJson {
@@ -236,8 +305,8 @@ function safeEmail(v: string | null | undefined): string | null {
 function safeUrl(v: string | null | undefined): string | null {
   if (!v) return null;
   try {
-    // eslint-disable-next-line no-new
-    new URL(v);
+    const url = new URL(v);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
     return v;
   } catch {
     return null;
@@ -529,6 +598,10 @@ function truncateSentence(text: string, maxLength: number): string {
   const trimmed = text.trim();
   if (trimmed.length <= maxLength) return trimmed;
   return `${trimmed.slice(0, Math.max(0, maxLength - 1)).trimEnd()}.`;
+}
+
+function trimBullet(b: string): string {
+  return b.length > 150 ? `${b.slice(0, 147)}…` : b;
 }
 
 function dedupeOrdered(arr: string[]): string[] {

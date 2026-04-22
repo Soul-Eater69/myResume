@@ -156,7 +156,8 @@ async function callAnthropic(o: {
   const resp = await client.messages.create({
     model: o.model,
     max_tokens: o.maxTokens,
-    system: o.system,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    system: [{ type: "text", text: o.system, cache_control: { type: "ephemeral" } }] as any,
     messages: [{ role: "user", content: o.user }],
   });
   const block = resp.content.find((b) => b.type === "text");

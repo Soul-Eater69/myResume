@@ -19,6 +19,149 @@ type Edu = {
 
 const empty: Edu = { institution: "", degree: "", fieldOfStudy: "", startDate: "", endDate: "" };
 
+function EduForm({ value, onChange }: { value: Edu; onChange: (v: Edu) => void }) {
+  return (
+    <div className="space-y-3">
+      <Field label="Institution">
+        <Input
+          value={value.institution}
+          onChange={(e) => onChange({ ...value, institution: e.target.value })}
+          placeholder="University of …"
+        />
+      </Field>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label="Degree">
+          <Input
+            value={value.degree}
+            onChange={(e) => onChange({ ...value, degree: e.target.value })}
+            placeholder="B.S."
+          />
+        </Field>
+        <Field label="Field of study">
+          <Input
+            value={value.fieldOfStudy}
+            onChange={(e) => onChange({ ...value, fieldOfStudy: e.target.value })}
+            placeholder="Computer Science"
+          />
+        </Field>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label="Start">
+          <Input
+            type="date"
+            value={value.startDate}
+            onChange={(e) => onChange({ ...value, startDate: e.target.value })}
+          />
+        </Field>
+        <Field label="End">
+          <Input
+            type="date"
+            value={value.endDate}
+            onChange={(e) => onChange({ ...value, endDate: e.target.value })}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+function EduCard({
+  item,
+  onRemove,
+  onUpdate,
+}: {
+  item: Edu;
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, updated: Edu) => void;
+}) {
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState<Edu>(item);
+  const [saving, setSaving] = useState(false);
+
+  async function saveEdit() {
+    if (!item.id) return;
+    setSaving(true);
+    const res = await fetch(`/api/profile/education/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        institution: editDraft.institution,
+        degree: editDraft.degree || null,
+        fieldOfStudy: editDraft.fieldOfStudy || null,
+        startDate: editDraft.startDate || null,
+        endDate: editDraft.endDate || null,
+      }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      onUpdate(item.id, editDraft);
+      setEditing(false);
+      toast.success("Education updated");
+    } else {
+      toast.error("Could not save changes");
+    }
+  }
+
+  if (editing) {
+    return (
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <CardTitle>Edit education</CardTitle>
+          <IconButton
+            variant="ghost"
+            onClick={() => { setEditing(false); setEditDraft(item); }}
+            aria-label="Cancel edit"
+          >
+            <Icon.X className="h-4 w-4 text-fg-subtle" />
+          </IconButton>
+        </div>
+        <EduForm value={editDraft} onChange={setEditDraft} />
+        <div className="mt-4 flex gap-2">
+          <Button
+            onClick={saveEdit}
+            disabled={!editDraft.institution}
+            loading={saving}
+            loadingText="Saving…"
+            leftIcon={<Icon.Check className="h-4 w-4" />}
+          >
+            Save changes
+          </Button>
+          <Button variant="outline" onClick={() => { setEditing(false); setEditDraft(item); }}>
+            Cancel
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-fg">{item.institution}</div>
+          <div className="text-xs text-fg-muted mt-0.5">
+            {[item.degree, item.fieldOfStudy].filter(Boolean).join(", ") || "—"}
+          </div>
+          <div className="text-xs text-fg-subtle mt-0.5">
+            {formatDate(item.startDate)} — {formatDate(item.endDate)}
+          </div>
+        </div>
+        {item.id ? (
+          <div className="flex items-center gap-1 shrink-0">
+            <IconButton variant="ghost" onClick={() => { setEditDraft(item); setEditing(true); }} aria-label="Edit education">
+              <Icon.Pencil className="h-4 w-4 text-fg-subtle" />
+            </IconButton>
+            <IconButton variant="ghost" onClick={() => onRemove(item.id!)} aria-label="Remove education">
+              <Icon.Trash className="h-4 w-4 text-fg-subtle" />
+            </IconButton>
+          </div>
+        ) : null}
+      </div>
+    </Card>
+  );
+}
+
 export function EducationManager({ initial }: { initial: Edu[] }) {
   const router = useRouter();
   const toast = useToast();
@@ -51,9 +194,14 @@ export function EducationManager({ initial }: { initial: Edu[] }) {
     }
   }
 
-  async function remove(id: string) {
+  function updateItem(id: string, updated: Edu) {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...updated, id } : i)));
+    router.refresh();
+  }
+
+  async function removeItem(id: string) {
     await fetch(`/api/profile/education/${id}`, { method: "DELETE" });
-    setItems(items.filter((i) => i.id !== id));
+    setItems((prev) => prev.filter((i) => i.id !== id));
     toast.success("Removed");
     router.refresh();
   }
@@ -66,27 +214,9 @@ export function EducationManager({ initial }: { initial: Edu[] }) {
           <CardDescription className="mt-1">
             Institution, degree, field, and dates.
           </CardDescription>
-          <div className="mt-4 space-y-3">
-            <Field label="Institution">
-              <Input value={draft.institution} onChange={(e) => setDraft({ ...draft, institution: e.target.value })} placeholder="University of ..." />
-            </Field>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Degree">
-                <Input value={draft.degree} onChange={(e) => setDraft({ ...draft, degree: e.target.value })} placeholder="B.S." />
-              </Field>
-              <Field label="Field of study">
-                <Input value={draft.fieldOfStudy} onChange={(e) => setDraft({ ...draft, fieldOfStudy: e.target.value })} placeholder="Computer Science" />
-              </Field>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Start">
-                <Input type="date" value={draft.startDate} onChange={(e) => setDraft({ ...draft, startDate: e.target.value })} />
-              </Field>
-              <Field label="End">
-                <Input type="date" value={draft.endDate} onChange={(e) => setDraft({ ...draft, endDate: e.target.value })} />
-              </Field>
-            </div>
-            <div className="pt-2">
+          <div className="mt-4">
+            <EduForm value={draft} onChange={setDraft} />
+            <div className="pt-4">
               <Button
                 onClick={add}
                 disabled={!draft.institution}
@@ -112,24 +242,7 @@ export function EducationManager({ initial }: { initial: Edu[] }) {
         ) : (
           <div className="space-y-3">
             {items.map((i) => (
-              <Card key={i.id ?? i.institution}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-fg">{i.institution}</div>
-                    <div className="text-xs text-fg-muted mt-0.5">
-                      {[i.degree, i.fieldOfStudy].filter(Boolean).join(", ") || "—"}
-                    </div>
-                    <div className="text-xs text-fg-subtle mt-0.5">
-                      {formatDate(i.startDate)} — {formatDate(i.endDate)}
-                    </div>
-                  </div>
-                  {i.id ? (
-                    <IconButton variant="ghost" onClick={() => remove(i.id!)} aria-label="Remove">
-                      <Icon.Trash className="h-4 w-4 text-fg-subtle" />
-                    </IconButton>
-                  ) : null}
-                </div>
-              </Card>
+              <EduCard key={i.id ?? i.institution} item={i} onRemove={removeItem} onUpdate={updateItem} />
             ))}
           </div>
         )}

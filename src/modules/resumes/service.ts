@@ -146,7 +146,7 @@ export async function generateResume(userId: string, input: GenerateInput) {
         ],
       });
 
-  const html = renderResumeHtml(finalJson);
+  const html = renderResumeHtml(finalJson, input.pageConstraint);
 
   const resume = await db.resume.create({
     data: {
@@ -245,14 +245,13 @@ function normalizeUrl(value: string | null | undefined) {
   const trimmed = value.trim();
   if (!trimmed) return null;
 
-  const withScheme =
-    /^[a-z][a-z\d+\-.]*:\/\//i.test(trimmed) || /^mailto:/i.test(trimmed)
-      ? trimmed
-      : `https://${trimmed.replace(/^\/+/, "")}`;
+  const withScheme = /^[a-z][a-z\d+\-.]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed.replace(/^\/+/, "")}`;
 
   try {
     const url = new URL(withScheme);
-    if (url.protocol !== "http:" && url.protocol !== "https:" && url.protocol !== "mailto:") {
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
       return null;
     }
     return url.toString();

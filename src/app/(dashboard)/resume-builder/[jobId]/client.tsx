@@ -35,10 +35,10 @@ const EMPTY_SUGGESTIONS: ResumeSuggestions = {
 };
 
 const GENERATION_STATUS_STEPS = [
-  "Starting generation.",
-  "Matching your selected evidence to the job description.",
-  "Drafting the tailored resume.",
-  "Rendering the preview.",
+  "Starting generation…",
+  "Matching your evidence to the job description…",
+  "Drafting the tailored resume…",
+  "Rendering the preview…",
 ];
 
 export function ResumeBuilderClient({
@@ -96,6 +96,11 @@ export function ResumeBuilderClient({
   const [suggestions, setSuggestions] =
     useState<ResumeSuggestions>(EMPTY_SUGGESTIONS);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [resumeId, setResumeId] = useState<string | null>(null);
+  const [currentResumeJson, setCurrentResumeJson] = useState<unknown>(null);
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
 
   const totalSelected = expIds.length + projIds.length + repoIds.length;
   const availableEvidenceCount =
@@ -139,6 +144,9 @@ export function ResumeBuilderClient({
     setWarnings([]);
     setErrors([]);
     setSuggestions(EMPTY_SUGGESTIONS);
+    setChatMessages([]);
+    setCurrentResumeJson(null);
+    setResumeId(null);
 
     try {
       const res = await fetch("/api/resumes/generate", {
@@ -192,6 +200,8 @@ export function ResumeBuilderClient({
       setWarnings(nextWarnings);
       setErrors(nextErrors);
       setSuggestions(normalizeSuggestions(data.resume?.suggestions));
+      if (data.resumeId) setResumeId(data.resumeId);
+      if (data.resume) setCurrentResumeJson(data.resume);
 
       if (!previewHtml) {
         toast.error(
@@ -218,6 +228,36 @@ export function ResumeBuilderClient({
     }
   }
 
+  async function sendChatMessage() {
+    const msg = chatInput.trim();
+    if (!msg || !resumeId || !currentResumeJson || chatLoading) return;
+    setChatInput("");
+    setChatMessages((prev) => [...prev, { role: "user", text: msg }]);
+    setChatLoading(true);
+    try {
+      const res = await fetch(`/api/resumes/${resumeId}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg, currentJson: currentResumeJson, pageConstraint }),
+      });
+      const data: any = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        const reason = data.reason === "no_ai_configured"
+          ? "No AI provider configured. Add an API key in Settings."
+          : "Edit failed. Try rephrasing your request.";
+        setChatMessages((prev) => [...prev, { role: "assistant", text: reason }]);
+      } else {
+        setPreview(data.previewHtml ?? preview);
+        setCurrentResumeJson(data.resume);
+        setChatMessages((prev) => [...prev, { role: "assistant", text: "Done — preview updated." }]);
+      }
+    } catch {
+      setChatMessages((prev) => [...prev, { role: "assistant", text: "Network error. Try again." }]);
+    } finally {
+      setChatLoading(false);
+    }
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <div className="space-y-4">
@@ -226,7 +266,7 @@ export function ResumeBuilderClient({
             <div>
               <CardTitle>Job signals</CardTitle>
               <CardDescription className="mt-1">
-                Borrowed from career-ops: frame the resume around the role archetype and JD keywords.
+                Extracted from the JD — used to rank and tailor the resume.
               </CardDescription>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
@@ -349,15 +389,8 @@ export function ResumeBuilderClient({
           </div>
         </Card>
 
-        {loading && statusMessage ? (
-          <Alert variant="info" title="Generating resume">
-            <div>{statusMessage}</div>
-            <div className="mt-1">Keep this tab open. The preview updates automatically when ready.</div>
-          </Alert>
-        ) : null}
-
         {errors.length ? (
-          <Alert variant="danger" title="Validation issues">
+          <Alert variant="danger" title="Generation failed">
             <ul className="mt-1 list-disc space-y-0.5 pl-4">
               {errors.map((error, index) => (
                 <li key={index}>{error}</li>
@@ -449,15 +482,16 @@ export function ResumeBuilderClient({
         {loading ? (
           <Empty
             icon={<Icon.RefreshCw className="h-5 w-5 animate-spin" />}
-            title="Generating preview"
+            title="Generating your resume"
             description={
-              statusMessage ??
-              "Preparing the tailored resume preview."
+              statusMessage
+                ? `${statusMessage} Keep this tab open.`
+                : "Preparing the tailored resume preview. Keep this tab open."
             }
           />
         ) : preview ? (
           <>
-            <ResumePreviewFrame html={preview} />
+            <ResumePreviewFrame html={preview} pageConstraint={pageConstraint} />
             <div className="mt-3 flex justify-end">
               <Button
                 variant="outline"
@@ -467,6 +501,53 @@ export function ResumeBuilderClient({
               >
                 Print / Save as PDF
               </Button>
+            </div>
+            <div className="mt-4 rounded-xl border border-border bg-white">
+              <div className="border-b border-border-subtle px-4 py-3">
+                <p className="text-sm font-medium text-fg">Edit with AI</p>
+                <p className="text-xs text-fg-muted mt-0.5">Ask for any change — bullets, summary, reordering, tone.</p>
+              </div>
+              {chatMessages.length > 0 ? (
+                <div className="max-h-56 space-y-2 overflow-y-auto px-4 py-3">
+                  {chatMessages.map((m, i) => (
+                    <div
+                      key={i}
+                      className={`text-sm ${m.role === "user" ? "text-fg font-medium" : "text-fg-muted"}`}
+                    >
+                      <span className="mr-1.5 text-xs font-medium uppercase tracking-wide text-fg-faint">
+                        {m.role === "user" ? "You" : "AI"}
+                      </span>
+                      {m.text}
+                    </div>
+                  ))}
+                  {chatLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-fg-muted">
+                      <Icon.RefreshCw className="h-3 w-3 animate-spin" />
+                      Editing…
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              <div className="flex gap-2 px-4 py-3">
+                <input
+                  className="flex-1 rounded-md border border-border bg-surface-subtle px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:border-brand-400 focus:outline-none"
+                  placeholder="e.g. Strengthen the summary, remove the last bullet in Acme…"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
+                  disabled={chatLoading}
+                />
+                <Button
+                  size="sm"
+                  onClick={sendChatMessage}
+                  disabled={!chatInput.trim() || chatLoading}
+                  loading={chatLoading}
+                  loadingText=""
+                  leftIcon={<Icon.Sparkles className="h-3.5 w-3.5" />}
+                >
+                  Edit
+                </Button>
+              </div>
             </div>
           </>
         ) : (
