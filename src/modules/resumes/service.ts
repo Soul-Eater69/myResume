@@ -66,7 +66,7 @@ export async function generateResume(userId: string, input: GenerateInput) {
       email: user.email,
       headline: profile?.headline ?? null,
       summary: profile?.summary ?? null,
-      links: links.map((l) => ({ label: l.label, url: l.url })),
+      links: normalizeLinks(links.map((l) => ({ label: l.label, url: l.url }))),
       location: null,
       phone: null,
     },
@@ -89,7 +89,7 @@ export async function generateResume(userId: string, input: GenerateInput) {
       ...projects.map((p) => ({
         id: p.id,
         title: p.title,
-        link: p.repoUrl ?? p.liveUrl ?? null,
+        link: normalizeUrl(p.repoUrl ?? p.liveUrl ?? null),
         bullets: p.bullets.map((b) => b.bulletText),
       })),
       ...repos
@@ -97,7 +97,7 @@ export async function generateResume(userId: string, input: GenerateInput) {
         .map((r) => ({
           id: r.id,
           title: r.summary?.resumeReadyTitle ?? r.name,
-          link: r.htmlUrl,
+          link: normalizeUrl(r.htmlUrl),
           bullets: toStringArray(r.summary?.resumeReadyBullets),
         })),
     ],
@@ -113,7 +113,7 @@ export async function generateResume(userId: string, input: GenerateInput) {
     pageConstraint: input.pageConstraint,
   };
 
-  const draft = await composeResumeDraft(composerInput, userId);
+  const draft = normalizeDraftUrls(await composeResumeDraft(composerInput, userId));
 
   const ctx = buildContext({
     experiences: composerInput.experiences.map((e) => ({ id: e.id, company: e.company })),
@@ -146,7 +146,7 @@ export async function generateResume(userId: string, input: GenerateInput) {
         ],
       });
 
-  const html = renderResumeHtml(finalJson);
+  const html = renderResumeHtml(finalJson, input.pageConstraint);
 
   const resume = await db.resume.create({
     data: {
@@ -216,4 +216,46 @@ function toStringArray(v: unknown): string[] {
   if (!v) return [];
   if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string");
   return [];
+}
+
+function normalizeDraftUrls(draft: ResumeJson): ResumeJson {
+  return {
+    ...draft,
+    basics: {
+      ...draft.basics,
+      links: normalizeLinks(draft.basics.links),
+    },
+    projects: draft.projects.map((project) => ({
+      ...project,
+      link: normalizeUrl(project.link),
+    })),
+  };
+}
+
+function normalizeLinks(links: Array<{ label: string; url: string }>) {
+  return links.flatMap((link) => {
+    const url = normalizeUrl(link.url);
+    return url ? [{ ...link, url }] : [];
+  });
+}
+
+function normalizeUrl(value: string | null | undefined) {
+  if (!value) return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const withScheme = /^[a-z][a-z\d+\-.]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed.replace(/^\/+/, "")}`;
+
+  try {
+    const url = new URL(withScheme);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
 }

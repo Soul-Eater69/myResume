@@ -40,6 +40,15 @@ export const resumeEducationSchema = z.object({
   endDate: z.string().optional().nullable(),
 });
 
+export const resumeSuggestionsSchema = z.object({
+  projectIdeas: z.array(z.string()).default([]),
+  bulletImprovements: z.array(z.string()).default([]),
+  missingEvidence: z.array(z.string()).default([]),
+  competencyGrid: z.array(z.string()).default([]),
+  keywordCoverage: z.array(z.string()).default([]),
+  gapMitigation: z.array(z.string()).default([]),
+});
+
 export const resumeJsonSchema = z.object({
   basics: resumeBasicsSchema,
   summary: z.string().default(""),
@@ -48,15 +57,17 @@ export const resumeJsonSchema = z.object({
   projects: z.array(resumeProjectSchema).default([]),
   education: z.array(resumeEducationSchema).default([]),
   warnings: z.array(z.string()).default([]),
-  suggestions: z
-    .object({
-      projectIdeas: z.array(z.string()).default([]),
-      bulletImprovements: z.array(z.string()).default([]),
-      missingEvidence: z.array(z.string()).default([]),
-    })
-    .default({ projectIdeas: [], bulletImprovements: [], missingEvidence: [] }),
+  suggestions: resumeSuggestionsSchema.default({
+    projectIdeas: [],
+    bulletImprovements: [],
+    missingEvidence: [],
+    competencyGrid: [],
+    keywordCoverage: [],
+    gapMitigation: [],
+  }),
 });
 
 export type ResumeJson = z.infer<typeof resumeJsonSchema>;
 export type ResumeExperience = z.infer<typeof resumeExperienceSchema>;
 export type ResumeProject = z.infer<typeof resumeProjectSchema>;
+export type ResumeSuggestions = z.infer<typeof resumeSuggestionsSchema>;

@@ -235,6 +235,23 @@ export async function createSkill(userId: string, input: SkillInput) {
   });
 }
 
+export async function updateSkill(
+  userId: string,
+  id: string,
+  input: Partial<SkillInput>
+) {
+  const existing = await db.skill.findFirst({ where: { id, userId } });
+  if (!existing) throw notFound("skill not found");
+  return db.skill.update({
+    where: { id },
+    data: {
+      name: input.name ?? undefined,
+      category: input.category ?? undefined,
+      proficiency: input.proficiency ?? undefined,
+    },
+  });
+}
+
 export async function deleteSkill(userId: string, id: string) {
   const res = await db.skill.deleteMany({ where: { id, userId } });
   if (res.count === 0) throw notFound("skill not found");
@@ -250,6 +267,26 @@ export async function createEducation(userId: string, input: EducationInput) {
       startDate: input.startDate ? new Date(input.startDate) : null,
       endDate: input.endDate ? new Date(input.endDate) : null,
       gpa: input.gpa ?? null,
+    },
+  });
+}
+
+export async function updateEducation(
+  userId: string,
+  id: string,
+  input: Partial<EducationInput>
+) {
+  const existing = await db.education.findFirst({ where: { id, userId } });
+  if (!existing) throw notFound("education not found");
+  return db.education.update({
+    where: { id },
+    data: {
+      institution: input.institution ?? undefined,
+      degree: input.degree ?? undefined,
+      fieldOfStudy: input.fieldOfStudy ?? undefined,
+      startDate: input.startDate ? new Date(input.startDate) : undefined,
+      endDate: input.endDate ? new Date(input.endDate) : undefined,
+      gpa: input.gpa ?? undefined,
     },
   });
 }

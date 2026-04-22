@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { getArchetypeFocusAreas } from "@/modules/ai/signals";
 import { computeMatches, getJob } from "@/modules/jobs/service";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/layout/dashboard-shell";
@@ -40,34 +40,57 @@ export default async function ResumeBuilderPage({
   return (
     <>
       <PageHeader
-        title={`Resume builder — ${job.title ?? "job"}`}
-        description={`${job.company ?? ""} · tailored to this JD`}
-        actions={
-          <Link className="btn btn-md btn-outline" href={`/jobs/${job.id}`}>
-            ← Back to job
-          </Link>
+        title="Resume builder"
+        description={
+          job.company
+            ? `${job.title ?? "Job"} · ${job.company} — tailored to this JD`
+            : `${job.title ?? "Job"} — tailored to this JD`
         }
+        breadcrumbs={[
+          { label: "Jobs", href: "/jobs" },
+          { label: job.title ?? "Job", href: `/jobs/${job.id}` },
+          { label: "Resume builder" },
+        ]}
       />
 
       <ResumeBuilderClient
         jobId={job.id}
-        experiences={experiences.map((e) => ({ id: e.id, label: `${e.title} · ${e.company}` }))}
-        projects={projects.map((p) => ({ id: p.id, label: p.title }))}
+        experiences={experiences.map((experience) => ({
+          id: experience.id,
+          label: `${experience.title} - ${experience.company}`,
+        }))}
+        projects={projects.map((project) => ({
+          id: project.id,
+          label: project.title,
+        }))}
         repos={repos
-          .filter((r) => r.summary)
-          .map((r) => ({
-            id: r.id,
-            label: `${r.name} (${(r.summary?.confidenceScores as any)?.ownership ?? "?"} ownership)`,
+          .filter((repo) => repo.summary)
+          .map((repo) => ({
+            id: repo.id,
+            label: `${repo.name} (${(repo.summary?.confidenceScores as any)?.ownership ?? "?"} ownership)`,
           }))}
-        preselectedExperienceIds={matches.experienceMatches.slice(0, 4).map((m) => m.experienceId)}
-        preselectedProjectIds={matches.projectMatches.slice(0, 3).map((m) => m.projectId)}
-        preselectedRepoIds={matches.repoMatches.slice(0, 2).map((m) => m.repoId)}
-        versions={versions.map((v) => ({
-          id: v.id,
-          resumeId: v.resumeId,
-          title: v.resume.title,
-          versionName: v.versionName,
-          createdAt: v.createdAt.toISOString(),
+        preselectedExperienceIds={matches.experienceMatches
+          .slice(0, 4)
+          .map((match) => match.experienceId)}
+        preselectedProjectIds={matches.projectMatches
+          .slice(0, 3)
+          .map((match) => match.projectId)}
+        preselectedRepoIds={matches.repoMatches
+          .slice(0, 2)
+          .map((match) => match.repoId)}
+        jobSummary={matches.signals.summary}
+        archetype={matches.signals.archetype ?? "Software Engineer"}
+        seniority={matches.signals.seniority}
+        requiredSkills={matches.signals.requiredSkills}
+        preferredSkills={matches.signals.preferredSkills}
+        keywords={matches.signals.keywords}
+        focusAreas={getArchetypeFocusAreas(matches.signals.archetype)}
+        versions={versions.map((version) => ({
+          id: version.id,
+          resumeId: version.resumeId,
+          title: version.resume.title,
+          versionName: version.versionName,
+          createdAt: version.createdAt.toISOString(),
         }))}
       />
     </>

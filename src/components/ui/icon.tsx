@@ -48,4 +48,5 @@ export const Icon = {
   ChevronDown: (p: IconProps) => svg(<path d="m6 9 6 6 6-6" />, p),
   Dot: (p: IconProps) => svg(<circle cx="12" cy="12" r="2" fill="currentColor" />, p),
   Bolt: (p: IconProps) => svg(<path d="M13 2 3 14h8l-1 8 10-12h-8l1-8Z" />, p),
+  Pencil: (p: IconProps) => svg(<><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></>, p),
 };

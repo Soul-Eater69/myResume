@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat -ano)",
+      "Read(//c/Users/mahes/AppData/Local/Temp/claude/**)",
+      "Bash(tasklist)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

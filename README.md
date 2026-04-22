@@ -43,7 +43,7 @@ Required:
 | Var | Purpose |
 | --- | --- |
 | `DATABASE_URL` | Postgres connection string |
-| `SESSION_SECRET` | Long random string used for session cookies and AES-256-GCM encryption of stored API keys / GitHub PATs |
+| `SESSION_SECRET` | Long random string used for session cookies and AES-256-GCM encryption of stored API keys / GitHub tokens |
 | `REDIS_URL` | Redis URL for BullMQ (worker only) |
 
 Optional (AI providers):
@@ -61,7 +61,8 @@ Optional (storage / integrations):
 | Var | Purpose |
 | --- | --- |
 | `STORAGE_DIR` | Local filesystem path for resume uploads (default `./.storage`) |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Reserved for future OAuth flow — the MVP uses personal access tokens entered in the UI |
+| `APP_URL` | Public base URL for OAuth callbacks (default `http://localhost:3000`) |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth app credentials for GitHub sign-in and repo sync |
 
 Generate a strong secret:
 
@@ -127,7 +128,6 @@ Also builds and runs the web app + worker:
 ```bash
 cp .env.example .env        # set SESSION_SECRET (required); add AI keys if you have them
 docker compose --profile app up -d --build
-docker compose exec web npx prisma db push   # one-time schema push
 ```
 
 App listens on <http://localhost:3000>.
@@ -154,11 +154,13 @@ The platform works with **zero keys** — every AI flow has a deterministic rule
 
 ## Connecting GitHub
 
-1. Create a **classic personal access token** with `repo` read scope at https://github.com/settings/tokens
-2. Paste it on the **GitHub** page
-3. Click **Sync repos** → then **Summarize** on any repo → then **Import to projects**
+1. Create a **GitHub OAuth App** at https://github.com/settings/developers
+2. Set the callback URL to `http://localhost:3000/api/auth/github/callback` for local dev, or `${APP_URL}/api/auth/github/callback` for your deployed URL
+3. Add `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, and `APP_URL` to `.env`
+4. Use **Continue with GitHub** on login/signup or **Connect with GitHub** on the GitHub page
+5. Click **Sync repos** → then **Summarize** on any repo → then **Import to projects**
 
-PATs are encrypted at rest using `SESSION_SECRET`.
+GitHub access tokens are encrypted at rest using `SESSION_SECRET`.
 
 ## Scripts
 

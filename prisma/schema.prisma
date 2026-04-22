@@ -11,7 +11,8 @@ model User {
   id           String   @id @default(uuid())
   email        String   @unique
   name         String
-  passwordHash String   @map("password_hash")
+  passwordHash String?  @map("password_hash")
+  githubUserId String?  @unique @map("github_user_id")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -218,6 +219,7 @@ model UploadedFile {
   mimeType     String   @map("mime_type")
   sizeBytes    BigInt   @map("size_bytes")
   parseStatus  String   @default("pending") @map("parse_status")
+  errorMessage String?  @map("error_message")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

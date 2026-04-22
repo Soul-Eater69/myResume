@@ -207,18 +207,44 @@ export async function importRepoToProject(userId: string, repoId: string) {
   if (!repo) throw notFound("repo not found");
   if (!repo.summary) throw badRequest("repo not summarized yet");
 
+  const title = repo.summary.resumeReadyTitle ?? repo.name;
+  const description = repo.summary.summary ?? repo.description ?? null;
+  const techStack = repo.summary.techTags ?? [];
+  const domainTags = repo.summary.roleTags ?? [];
+  const newBullets = toStringArray(repo.summary.resumeReadyBullets);
+
+  const existing = await db.project.findFirst({
+    where: { userId, repoUrl: repo.htmlUrl },
+  });
+
+  if (existing) {
+    await db.projectBullet.deleteMany({ where: { projectId: existing.id } });
+    await db.projectBullet.createMany({
+      data: newBullets.map((b, i) => ({
+        projectId: existing.id,
+        bulletText: b,
+        sortOrder: i,
+        isVerified: false,
+      })),
+    });
+    return db.project.update({
+      where: { id: existing.id },
+      data: { title, description, techStack, domainTags, sourceType: "github" },
+    });
+  }
+
   return db.project.create({
     data: {
       userId,
-      title: repo.summary.resumeReadyTitle ?? repo.name,
-      description: repo.summary.summary ?? repo.description ?? null,
+      title,
+      description,
       repoUrl: repo.htmlUrl,
-      techStack: repo.summary.techTags ?? [],
-      domainTags: repo.summary.roleTags ?? [],
+      techStack,
+      domainTags,
       sourceType: "github",
       isVerified: false,
       bullets: {
-        create: toStringArray(repo.summary.resumeReadyBullets).map((b, i) => ({
+        create: newBullets.map((b, i) => ({
           bulletText: b,
           sortOrder: i,
           isVerified: false,
