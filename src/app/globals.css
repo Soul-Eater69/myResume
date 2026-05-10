@@ -171,4 +171,17 @@
   body { background: white; }
   aside, header { display: none !important; }
   main { padding: 0 !important; max-width: none !important; }
+
+  /* Resume Studio: print only the resume page, hide the dark workspace chrome */
+  .resume-page {
+    box-shadow: none !important;
+    width: 100% !important;
+    min-height: auto !important;
+    padding: 0.55in 0.7in !important;
+  }
+}
+
+@page {
+  size: Letter;
+  margin: 0;
 }

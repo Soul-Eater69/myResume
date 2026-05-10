@@ -11,6 +11,7 @@ const WORKSPACE: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: Icon.Home },
   { href: "/profile", label: "Profile", icon: Icon.User },
   { href: "/jobs", label: "Jobs", icon: Icon.Briefcase },
+  { href: "/resume-studio", label: "Resume Studio", icon: Icon.Sparkles },
   { href: "/applications", label: "Applications", icon: Icon.Kanban },
 ];
 
